@@ -1,0 +1,45 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphToMany;
+
+class PartyCharacter extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'party_id',
+        'user_id',
+        'name',
+        'race',
+        'class_name',
+        'gender',
+        'age',
+        'height_cm',
+        'weight_kg',
+        'traits',
+    ];
+
+    protected $casts = [
+        'traits' => 'array',
+    ];
+
+    public function party(): BelongsTo
+    {
+        return $this->belongsTo(Party::class);
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function mediafiles(): MorphToMany
+    {
+        return $this->morphToMany(Mediafile::class, 'attachable', 'mediafile_attachments');
+    }
+}
