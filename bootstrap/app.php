@@ -3,6 +3,8 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
+use Illuminate\Session\TokenMismatchException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -20,5 +22,15 @@ return Application::configure(basePath: dirname(__DIR__))
         //
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $exceptions->render(function (TokenMismatchException $exception, Request $request) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Sitzung abgelaufen. Bitte Seite neu laden und erneut versuchen.',
+                ], 419);
+            }
+
+            return back()
+                ->withInput($request->except('_token'))
+                ->with('error', 'Deine Sitzung ist abgelaufen. Bitte Seite neu laden und erneut versuchen.');
+        });
     })->create();

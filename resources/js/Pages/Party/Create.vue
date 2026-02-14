@@ -1,5 +1,6 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
@@ -35,7 +36,7 @@ const submit = () => {
                         </div>
                         <h5 class="card-title mb-2">Neue Party</h5>
                         <p class="text-muted mb-4">
-                            Der Einladungslink ist 30 Minuten gütig und kann später neu erstellt werden.
+                            Der Einladungslink ist 30 Minuten gueltig und kann spaeter neu erstellt werden.
                         </p>
 
                         <form @submit.prevent="submit">
@@ -48,10 +49,9 @@ const submit = () => {
                                     required
                                     autofocus
                                     autocomplete="off"
+                                    class="w-100"
                                 />
-                                <div v-if="form.errors.name" class="text-danger small mt-1">
-                                    {{ form.errors.name }}
-                                </div>
+                                <InputError :message="form.errors.name" />
                             </div>
 
                             <div class="d-flex justify-content-end">
@@ -59,7 +59,8 @@ const submit = () => {
                                     :class="{ disabled: form.processing }"
                                     :disabled="form.processing"
                                 >
-                                    Party erstellen
+                                    <span v-if="form.processing">Party wird erstellt...</span>
+                                    <span v-else>Party erstellen</span>
                                 </PrimaryButton>
                             </div>
                         </form>

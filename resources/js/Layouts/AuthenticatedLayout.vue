@@ -68,12 +68,22 @@ const page = usePage();
 
         <main class="py-4">
             <div class="container">
-                <div v-if="page.props.flash?.error" class="alert alert-danger border-0">
+                <div v-if="page.props.flash?.error" class="alert alert-danger border-0 mb-3" role="alert">
                     {{ page.props.flash.error }}
                 </div>
-                <div v-else-if="page.props.flash?.status" class="alert alert-success border-0">
+
+                <div v-if="page.props.flash?.warning" class="alert alert-warning border-0 mb-3" role="alert">
+                    {{ page.props.flash.warning }}
+                </div>
+
+                <div v-if="page.props.flash?.info" class="alert alert-info border-0 mb-3" role="status" aria-live="polite">
+                    {{ page.props.flash.info }}
+                </div>
+
+                <div v-if="page.props.flash?.status" class="alert alert-success border-0 mb-3" role="status" aria-live="polite">
                     {{ page.props.flash.status }}
                 </div>
+
                 <slot />
             </div>
         </main>

@@ -42,7 +42,9 @@ class PartyController extends Controller
         $party->members()->syncWithoutDetaching([$request->user()->id]);
         $this->createInvite($party, $request->user()->id);
 
-        return redirect()->route('parties.show', $party);
+        return redirect()
+            ->route('parties.show', $party)
+            ->with('status', 'Party wurde erfolgreich erstellt.');
     }
 
     public function show(Request $request, Party $party): Response|RedirectResponse
@@ -120,7 +122,9 @@ class PartyController extends Controller
             'started_at' => now(),
         ]);
 
-        return redirect()->route('parties.started', $party);
+        return redirect()
+            ->route('parties.started', $party)
+            ->with('status', 'Party wurde gestartet.');
     }
 
     public function started(Request $request, Party $party): Response|RedirectResponse
