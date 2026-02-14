@@ -43,7 +43,7 @@ const submit = () => {
                     <div class="text-uppercase small text-muted" style="letter-spacing: 2px;">
                         Portal
                     </div>
-                    <h2 class="h4 mb-1">Willkommen zurueck</h2>
+                    <h2 class="h4 mb-1">Willkommen zurück</h2>
                     <p class="text-muted mb-0">Melde dich an und betrete den Admin-Bereich.</p>
                 </div>
             </div>

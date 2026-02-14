@@ -5,6 +5,7 @@ use App\Http\Controllers\PartyController;
 use App\Http\Controllers\PartyInviteController;
 use App\Http\Controllers\PartyMemberController;
 use App\Http\Controllers\PartyCharacterController;
+use App\Http\Controllers\PublicMediaController;
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -21,6 +22,10 @@ Route::get('/', function () {
         'phpVersion' => PHP_VERSION,
     ]);
 });
+
+Route::get('/media/public/{path}', [PublicMediaController::class, 'show'])
+    ->where('path', '.*')
+    ->name('media.public');
 
 Route::get('/lobby', function (Request $request) {
     $user = $request->user();

@@ -407,7 +407,20 @@ onBeforeUnmount(() => {
                         </p>
 
                         <div v-if="character" class="alert alert-success border-0">
-                            Charakter erstellt: <strong>{{ character.name }}</strong>
+                            <div>
+                                Charakter erstellt: <strong>{{ character.name }}</strong>
+                            </div>
+                            <div v-if="character.image_url" class="mt-3">
+                                <img
+                                    :src="character.image_url"
+                                    :alt="`Charakterbild von ${character.name}`"
+                                    class="img-fluid rounded border"
+                                    style="max-width: 320px;"
+                                />
+                            </div>
+                            <div v-else class="small text-muted mt-2">
+                                Bild wird gerade von ComfyUI erstellt. Bitte Seite in einem Moment neu laden.
+                            </div>
                         </div>
 
                         <form v-else @submit.prevent="submitCharacter" class="row g-3">
@@ -599,24 +612,33 @@ onBeforeUnmount(() => {
                                 <li
                                     v-for="entry in characters"
                                     :key="entry.id"
-                                    class="list-group-item px-0 d-flex justify-content-between align-items-center"
+                                    class="list-group-item px-0 d-flex justify-content-between align-items-start gap-3 flex-wrap"
                                 >
-                                    <div>
-                                        <div class="fw-semibold">{{ entry.name }}</div>
-                                        <div class="text-muted small">
-                                            {{ entry.race }} · {{ entry.class_name }} · {{ entry.gender }}
-                                        </div>
-                                        <div class="text-muted small">
-                                            {{ entry.age }}J · {{ entry.height_cm }}cm · {{ entry.weight_kg }}kg
-                                        </div>
-                                        <div class="d-flex flex-wrap gap-1 mt-1">
-                                            <span
-                                                v-for="trait in entry.traits"
-                                                :key="trait"
-                                                class="badge text-bg-light border"
-                                            >
-                                                {{ trait }}
-                                            </span>
+                                    <div class="d-flex align-items-start gap-3">
+                                        <img
+                                            v-if="entry.image_url"
+                                            :src="entry.image_url"
+                                            :alt="`Charakterbild von ${entry.name}`"
+                                            class="rounded border"
+                                            style="width: 84px; height: 84px; object-fit: cover;"
+                                        />
+                                        <div>
+                                            <div class="fw-semibold">{{ entry.name }}</div>
+                                            <div class="text-muted small">
+                                                {{ entry.race }} · {{ entry.class_name }} · {{ entry.gender }}
+                                            </div>
+                                            <div class="text-muted small">
+                                                {{ entry.age }}J · {{ entry.height_cm }}cm · {{ entry.weight_kg }}kg
+                                            </div>
+                                            <div class="d-flex flex-wrap gap-1 mt-1">
+                                                <span
+                                                    v-for="trait in entry.traits"
+                                                    :key="trait"
+                                                    class="badge text-bg-light border"
+                                                >
+                                                    {{ trait }}
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
                                     <span class="text-muted small">{{ entry.user.name }}</span>

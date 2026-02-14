@@ -63,6 +63,26 @@ class PartyController extends Controller
             ->latest('expires_at')
             ->first();
 
+        $character = $party->characters()
+            ->where('user_id', $userId)
+            ->with([
+                'mediafiles' => fn ($query) => $query
+                    ->wherePivot('role', 'character')
+                    ->latest('mediafiles.id'),
+            ])
+            ->select('id', 'name', 'race', 'class_name', 'gender', 'age', 'height_cm', 'weight_kg', 'traits')
+            ->first();
+
+        $characters = $party->characters()
+            ->with('user:id,name')
+            ->with([
+                'mediafiles' => fn ($query) => $query
+                    ->wherePivot('role', 'character')
+                    ->latest('mediafiles.id'),
+            ])
+            ->select('id', 'party_id', 'user_id', 'name', 'race', 'class_name', 'gender', 'age', 'height_cm', 'weight_kg', 'traits')
+            ->get();
+
         return Inertia::render('Party/Show', [
             'party' => [
                 'id' => $party->id,
@@ -77,14 +97,42 @@ class PartyController extends Controller
             'members' => $party->members()
                 ->select('users.id', 'users.name', 'users.email', 'party_user.is_ready')
                 ->get(),
-            'character' => $party->characters()
-                ->where('user_id', $userId)
-                ->select('id', 'name', 'race', 'class_name', 'gender', 'age', 'height_cm', 'weight_kg', 'traits')
-                ->first(),
-            'characters' => $party->characters()
-                ->with('user:id,name')
-                ->select('id', 'party_id', 'user_id', 'name', 'race', 'class_name', 'gender', 'age', 'height_cm', 'weight_kg', 'traits')
-                ->get(),
+            'character' => $character ? [
+                'id' => $character->id,
+                'name' => $character->name,
+                'race' => $character->race,
+                'class_name' => $character->class_name,
+                'gender' => $character->gender,
+                'age' => $character->age,
+                'height_cm' => $character->height_cm,
+                'weight_kg' => $character->weight_kg,
+                'traits' => $character->traits,
+                'image_url' => ($image = $character->mediafiles->first())
+                    ? route('media.public', ['path' => $image->path])
+                    : null,
+            ] : null,
+            'characters' => $characters->map(function ($entry) {
+                $image = $entry->mediafiles->first();
+
+                return [
+                    'id' => $entry->id,
+                    'party_id' => $entry->party_id,
+                    'user_id' => $entry->user_id,
+                    'name' => $entry->name,
+                    'race' => $entry->race,
+                    'class_name' => $entry->class_name,
+                    'gender' => $entry->gender,
+                    'age' => $entry->age,
+                    'height_cm' => $entry->height_cm,
+                    'weight_kg' => $entry->weight_kg,
+                    'traits' => $entry->traits,
+                    'user' => [
+                        'id' => $entry->user->id,
+                        'name' => $entry->user->name,
+                    ],
+                    'image_url' => $image ? route('media.public', ['path' => $image->path]) : null,
+                ];
+            })->values(),
             'invite' => $invite ? [
                 'url' => route('parties.invites.join', $invite->token),
                 'expiresAt' => $invite->expires_at->toIso8601String(),
