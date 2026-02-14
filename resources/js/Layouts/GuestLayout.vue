@@ -10,7 +10,7 @@ const page = usePage();
         style="background: #0b1220;"
     >
         <img
-            src="/images/EldoriaStart.png"
+            src="/images/EldoriaMap.png"
             alt="Eldoria map background"
             class="position-absolute top-0 start-0 w-100 h-100"
             style="object-fit: cover; opacity: 0.75; z-index: 0;"
