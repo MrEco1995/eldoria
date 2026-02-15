@@ -28,6 +28,14 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    talents: {
+        type: Array,
+        default: () => [],
+    },
+    talentPointPool: {
+        type: Number,
+        default: 35,
+    },
     isOwner: {
         type: Boolean,
         default: false,
@@ -49,6 +57,31 @@ const canCloseParty = computed(() => {
 });
 
 const copied = ref(false);
+const characterStep = ref(1);
+const maxTalentPoints = computed(() => Number(props.talentPointPool ?? 35));
+
+const talentDefinitions = computed(() => {
+    const groups = new Map();
+    (props.talents ?? []).forEach((talent) => {
+        const category = talent.category || 'Sonstige Talente';
+        if (!groups.has(category)) {
+            groups.set(category, []);
+        }
+        groups.get(category).push(talent);
+    });
+    return Array.from(groups.entries()).map(([category, items]) => ({ category, items }));
+});
+
+const talentMaxByKey = computed(() => {
+    return Object.fromEntries(
+        (props.talents ?? []).map((talent) => [talent.key, Number(talent.maxPoints ?? 15)]),
+    );
+});
+
+const buildInitialTalents = () => {
+    return Object.fromEntries((props.talents ?? []).map((talent) => [talent.key, 0]));
+};
+
 const characterForm = useForm({
     name: '',
     race: '',
@@ -58,6 +91,7 @@ const characterForm = useForm({
     height_cm: '',
     weight_kg: '',
     traits: [],
+    talents: buildInitialTalents(),
 });
 
 const inviteExpiresText = computed(() => {
@@ -200,6 +234,69 @@ const handleRacePreviewError = () => {
 
     racePreviewIndex.value = racePreviewSources.value.length;
 };
+
+watch(
+    () => props.talents,
+    (nextTalents) => {
+        const keys = new Set((nextTalents ?? []).map((talent) => talent.key));
+        Object.keys(characterForm.talents).forEach((key) => {
+            if (!keys.has(key)) {
+                delete characterForm.talents[key];
+            }
+        });
+        keys.forEach((key) => {
+            if (characterForm.talents[key] === undefined) {
+                characterForm.talents[key] = 0;
+            }
+        });
+    },
+    { immediate: true },
+);
+
+const allocatedTalentPoints = computed(() => {
+    return Object.values(characterForm.talents).reduce((sum, value) => sum + (Number(value) || 0), 0);
+});
+
+const remainingTalentPoints = computed(() => {
+    return maxTalentPoints.value - allocatedTalentPoints.value;
+});
+
+const getTalentPoints = (key) => Number(characterForm.talents[key] || 0);
+const getTalentMaxPoints = (key) => Number(talentMaxByKey.value[key] ?? 15);
+
+const incrementTalent = (key) => {
+    const current = getTalentPoints(key);
+    if (current >= getTalentMaxPoints(key) || remainingTalentPoints.value <= 0) {
+        return;
+    }
+
+    characterForm.talents[key] = current + 1;
+};
+
+const decrementTalent = (key) => {
+    const current = getTalentPoints(key);
+    if (current <= 0) {
+        return;
+    }
+
+    characterForm.talents[key] = current - 1;
+};
+
+const goToTalentStep = () => {
+    characterStep.value = 2;
+};
+
+const hasTalentErrors = computed(() => {
+    return Object.keys(characterForm.errors).some(
+        (key) => key === 'talents' || key.startsWith('talents.'),
+    );
+});
+
+watch(hasTalentErrors, (value) => {
+    if (value) {
+        characterStep.value = 2;
+    }
+});
 
 const missingCharacterCount = computed(() => {
     const memberIds = membersState.value
@@ -441,7 +538,8 @@ onBeforeUnmount(() => {
                         </div>
 
                         <form v-else @submit.prevent="submitCharacter" class="row g-3">
-                            <div class="col-12 col-md-6">
+                            <template v-if="characterStep === 1">
+                            <div class="col-12">
                                 <label class="form-label" for="characterName">Charaktername</label>
                                 <input
                                     id="characterName"
@@ -455,7 +553,24 @@ onBeforeUnmount(() => {
                                     {{ characterForm.errors.name }}
                                 </div>
                             </div>
-                            <div class="col-12 col-md-6">
+                            <div class="col-12 col-md-4">
+                                <label class="form-label" for="characterGender">Geschlecht</label>
+                                <select
+                                    id="characterGender"
+                                    v-model="characterForm.gender"
+                                    class="form-select"
+                                    :disabled="isOwner"
+                                >
+                                    <option value="">Bitte wählen</option>
+                                    <option v-for="item in genders" :key="item" :value="item">
+                                        {{ item }}
+                                    </option>
+                                </select>
+                                <div v-if="characterForm.errors.gender" class="text-danger small mt-1">
+                                    {{ characterForm.errors.gender }}
+                                </div>
+                            </div>
+                            <div class="col-12 col-md-4">
                                 <label class="form-label" for="characterRace">Volk</label>
                                 <select
                                     id="characterRace"
@@ -472,54 +587,7 @@ onBeforeUnmount(() => {
                                     {{ characterForm.errors.race }}
                                 </div>
                             </div>
-
-                            <div v-if="selectedRace" class="col-12">
-                                <div class="alert alert-info border-0 mb-0">
-                                    <div class="fw-semibold mb-1">{{ selectedRace.name }}</div>
-                                    <div class="mb-2">{{ selectedRace.description }}</div>
-                                    <div class="mb-3">
-                                        <div v-if="currentRacePreviewSrc" class="rounded overflow-hidden border bg-white">
-                                            <img
-                                                :src="currentRacePreviewSrc"
-                                                :alt="`Völkerbild ${selectedRace.name} ${characterForm.gender}`"
-                                                class="img-fluid d-block mx-auto"
-                                                style="max-height: 240px; object-fit: cover;"
-                                                @error="handleRacePreviewError"
-                                            />
-                                        </div>
-                                        <div v-else-if="characterForm.gender" class="small text-muted">
-                                            Kein Bild für diese Kombination gefunden.
-                                        </div>
-                                        <div v-else class="small text-muted">
-                                            Wähle zusätzlich ein Geschlecht, um ein Völkerbild zu sehen.
-                                        </div>
-                                    </div>
-                                    <div class="small fw-semibold mt-3 mb-1">Wesen</div>
-                                    <ul class="small mb-2">
-                                        <li v-for="item in selectedRace.essence" :key="`essence-${item}`">
-                                            {{ item }}
-                                        </li>
-                                    </ul>
-                                    <div class="small fw-semibold mt-2 mb-1">Aussehen</div>
-                                    <ul class="small mb-2">
-                                        <li v-for="item in selectedRace.appearance" :key="`appearance-${item}`">
-                                            {{ item }}
-                                        </li>
-                                    </ul>
-                                    <div class="small"><span class="fw-semibold">Alter:</span> {{ selectedRace.age }}</div>
-                                    <div class="small"><span class="fw-semibold">Größe:</span> {{ selectedRace.height }}</div>
-                                    <div class="small mb-2"><span class="fw-semibold">Gewicht:</span> {{ selectedRace.weight }}</div>
-                                    <div class="small">
-                                        <span class="fw-semibold">Kommen gut klar mit:</span>
-                                        {{ selectedRace.goodWith.join(', ') }}
-                                    </div>
-                                    <div class="small">
-                                        <span class="fw-semibold">Kommen schlecht klar mit:</span>
-                                        {{ selectedRace.badWith.join(', ') }}
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-12 col-md-6">
+                            <div class="col-12 col-md-4">
                                 <label class="form-label" for="characterClass">Klasse</label>
                                 <select
                                     id="characterClass"
@@ -537,26 +605,56 @@ onBeforeUnmount(() => {
                                 </div>
                             </div>
 
-
-
-                            <div class="col-12 col-md-6">
-                                <label class="form-label" for="characterGender">Geschlecht</label>
-                                <select
-                                    id="characterGender"
-                                    v-model="characterForm.gender"
-                                    class="form-select"
-                                    :disabled="isOwner"
-                                >
-                                    <option value="">Bitte wählen</option>
-                                    <option v-for="item in genders" :key="item" :value="item">
-                                        {{ item }}
-                                    </option>
-                                </select>
-                                <div v-if="characterForm.errors.gender" class="text-danger small mt-1">
-                                    {{ characterForm.errors.gender }}
+                            <div v-if="selectedRace" class="col-12">
+                                <div class="alert alert-info border-0 mb-0">
+                                    <div class="row g-3 align-items-start">
+                                        <div class="col-12 col-md-6">
+                                            <div class="fw-semibold mb-1">{{ selectedRace.name }}</div>
+                                            <div class="mb-2">{{ selectedRace.description }}</div>
+                                            <div class="small fw-semibold mt-3 mb-1">Wesen</div>
+                                            <ul class="small mb-2">
+                                                <li v-for="item in selectedRace.essence" :key="`essence-${item}`">
+                                                    {{ item }}
+                                                </li>
+                                            </ul>
+                                            <div class="small fw-semibold mt-2 mb-1">Aussehen</div>
+                                            <ul class="small mb-2">
+                                                <li v-for="item in selectedRace.appearance" :key="`appearance-${item}`">
+                                                    {{ item }}
+                                                </li>
+                                            </ul>
+                                            <div class="small"><span class="fw-semibold">Alter:</span> {{ selectedRace.age }}</div>
+                                            <div class="small"><span class="fw-semibold">Größe:</span> {{ selectedRace.height }}</div>
+                                            <div class="small mb-2"><span class="fw-semibold">Gewicht:</span> {{ selectedRace.weight }}</div>
+                                            <div class="small">
+                                                <span class="fw-semibold">Kommen gut klar mit:</span>
+                                                {{ selectedRace.goodWith.join(', ') }}
+                                            </div>
+                                            <div class="small">
+                                                <span class="fw-semibold">Kommen schlecht klar mit:</span>
+                                                {{ selectedRace.badWith.join(', ') }}
+                                            </div>
+                                        </div>
+                                        <div class="col-12 col-md-6">
+                                            <div v-if="currentRacePreviewSrc" class="rounded overflow-hidden border bg-white">
+                                                <img
+                                                    :src="currentRacePreviewSrc"
+                                                    :alt="`Völkerbild ${selectedRace.name} ${characterForm.gender}`"
+                                                    class="img-fluid d-block mx-auto"
+                                                    style="max-height: 380px; object-fit: cover;"
+                                                    @error="handleRacePreviewError"
+                                                />
+                                            </div>
+                                            <div v-else-if="characterForm.gender" class="small text-muted">
+                                                Kein Bild für diese Kombination gefunden.
+                                            </div>
+                                            <div v-else class="small text-muted">
+                                                Wähle zusätzlich ein Geschlecht, um ein Völkerbild zu sehen.
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-
                             <div class="col-12 col-md-4">
                                 <label class="form-label" for="characterAge">Alter</label>
                                 <input
@@ -636,15 +734,110 @@ onBeforeUnmount(() => {
                                 </div>
                             </div>
 
-                            <div class="col-12 col-md-4 d-grid">
+                            <div class="col-12 col-md-5 d-grid">
                                 <button
-                                    type="submit"
-                                    class="btn btn-primary"
-                                    :disabled="isOwner || characterForm.processing"
+                                    type="button"
+                                    class="btn btn-outline-primary"
+                                    :disabled="isOwner"
+                                    @click="goToTalentStep"
                                 >
-                                    Charakter erstellen
+                                    Weiter zu Talenten
                                 </button>
                             </div>
+                            </template>
+
+                            <template v-else>
+                                <div class="col-12 d-flex justify-content-between align-items-center">
+                                    <label class="form-label m-0">Talente</label>
+                                    <span class="badge text-bg-dark">
+                                        Verfügbar: {{ remainingTalentPoints }} / {{ maxTalentPoints }}
+                                    </span>
+                                </div>
+
+                                <div class="col-12">
+                                    <div class="row g-3">
+                                        <div
+                                            v-for="group in talentDefinitions"
+                                            :key="group.category"
+                                            class="col-12 col-lg-6"
+                                        >
+                                            <div class="border rounded p-3 h-100 bg-light-subtle">
+                                                <div class="fw-semibold small mb-2">{{ group.category }}</div>
+                                                <div
+                                                    v-for="talent in group.items"
+                                                    :key="talent.key"
+                                                    class="mb-3"
+                                                >
+                                                    <div class="d-flex justify-content-between align-items-center gap-2">
+                                                        <label class="small m-0" :for="`talent-${talent.key}`">{{ talent.label }}</label>
+                                                        <div class="d-flex align-items-center gap-2">
+                                                            <button
+                                                                :id="`talent-${talent.key}`"
+                                                                type="button"
+                                                                class="btn btn-outline-secondary btn-sm px-2 py-0"
+                                                                :disabled="isOwner || getTalentPoints(talent.key) <= 0"
+                                                                @click="decrementTalent(talent.key)"
+                                                            >
+                                                                -
+                                                            </button>
+                                                            <span class="small fw-semibold" style="min-width: 2ch; text-align: center;">
+                                                                {{ getTalentPoints(talent.key) }}
+                                                            </span>
+                                                            <button
+                                                                type="button"
+                                                                class="btn btn-outline-secondary btn-sm px-2 py-0"
+                                                                :disabled="isOwner || getTalentPoints(talent.key) >= getTalentMaxPoints(talent.key) || remainingTalentPoints <= 0"
+                                                                @click="incrementTalent(talent.key)"
+                                                            >
+                                                                +
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    <div v-if="talent.description" class="small text-muted mb-1">
+                                                        {{ talent.description }}
+                                                    </div>
+                                                    <div class="d-flex gap-1 mt-1 flex-wrap">
+                                                        <span
+                                                            v-for="slot in getTalentMaxPoints(talent.key)"
+                                                            :key="`${talent.key}-slot-${slot}`"
+                                                            class="rounded-1"
+                                                            :class="slot <= getTalentPoints(talent.key) ? 'bg-primary' : 'bg-secondary-subtle border'"
+                                                            style="width: 12px; height: 8px;"
+                                                        ></span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div v-if="characterForm.errors.talents" class="text-danger small mt-2">
+                                        {{ characterForm.errors.talents }}
+                                    </div>
+                                    <div
+                                        v-for="(error, key) in characterForm.errors"
+                                        :key="`talent-error-${key}`"
+                                        class="text-danger small mt-1"
+                                    >
+                                        <span v-if="key.startsWith('talents.')">{{ error }}</span>
+                                    </div>
+                                </div>
+
+                                <div class="col-12 d-flex gap-2 flex-wrap">
+                                    <button
+                                        type="button"
+                                        class="btn btn-outline-secondary"
+                                        @click="characterStep = 1"
+                                    >
+                                        Zurück
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        class="btn btn-primary"
+                                        :disabled="isOwner || characterForm.processing"
+                                    >
+                                        Charakter erstellen
+                                    </button>
+                                </div>
+                            </template>
                             <div v-if="isOwner" class="text-muted small">
                                 Owner kann keinen Charakter erstellen.
                             </div>
@@ -700,6 +893,3 @@ onBeforeUnmount(() => {
         </div>
     </AuthenticatedLayout>
 </template>
-
-
-

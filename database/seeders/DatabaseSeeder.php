@@ -17,6 +17,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             RaceSeeder::class,
+            TalentSeeder::class,
         ]);
 
         // User::factory(10)->create();

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Party;
 use App\Models\PartyInvite;
 use App\Models\Race;
+use App\Models\Talent;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -71,7 +72,7 @@ class PartyController extends Controller
                     ->wherePivot('role', 'character')
                     ->latest('mediafiles.id'),
             ])
-            ->select('id', 'name', 'race', 'class_name', 'gender', 'age', 'height_cm', 'weight_kg', 'traits')
+            ->select('id', 'name', 'race', 'class_name', 'gender', 'age', 'height_cm', 'weight_kg', 'traits', 'talents')
             ->first();
 
         $characters = $party->characters()
@@ -81,7 +82,7 @@ class PartyController extends Controller
                     ->wherePivot('role', 'character')
                     ->latest('mediafiles.id'),
             ])
-            ->select('id', 'party_id', 'user_id', 'name', 'race', 'class_name', 'gender', 'age', 'height_cm', 'weight_kg', 'traits')
+            ->select('id', 'party_id', 'user_id', 'name', 'race', 'class_name', 'gender', 'age', 'height_cm', 'weight_kg', 'traits', 'talents')
             ->get();
 
         return Inertia::render('Party/Show', [
@@ -108,6 +109,7 @@ class PartyController extends Controller
                 'height_cm' => $character->height_cm,
                 'weight_kg' => $character->weight_kg,
                 'traits' => $character->traits,
+                'talents' => $character->talents,
                 'image_url' => ($image = $character->mediafiles->first())
                     ? route('media.public', ['path' => $image->path])
                     : null,
@@ -127,6 +129,7 @@ class PartyController extends Controller
                     'height_cm' => $entry->height_cm,
                     'weight_kg' => $entry->weight_kg,
                     'traits' => $entry->traits,
+                    'talents' => $entry->talents,
                     'user' => [
                         'id' => $entry->user->id,
                         'name' => $entry->user->name,
@@ -163,6 +166,24 @@ class PartyController extends Controller
                     'goodWith' => $race->good_with ?? [],
                     'badWith' => $race->bad_with ?? [],
                 ])->values(),
+            'talents' => Talent::query()
+                ->where('is_active', true)
+                ->orderBy('sort_order')
+                ->orderBy('label')
+                ->get([
+                    'key',
+                    'label',
+                    'category',
+                    'description',
+                    'max_points',
+                ])->map(fn ($talent) => [
+                    'key' => $talent->key,
+                    'label' => $talent->label,
+                    'category' => $talent->category,
+                    'description' => $talent->description,
+                    'maxPoints' => $talent->max_points,
+                ])->values(),
+            'talentPointPool' => config('game.character_talent_point_pool', 35),
             'isOwner' => $party->owner_id === $userId,
         ]);
     }

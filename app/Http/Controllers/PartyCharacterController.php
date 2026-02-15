@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Party;
 use App\Models\PartyCharacter;
+use App\Models\Talent;
 use App\Jobs\GenerateCharacterImage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 
 class PartyCharacterController extends Controller
@@ -34,7 +36,14 @@ class PartyCharacterController extends Controller
                 ->with('error', 'Du hast bereits einen Charakter in dieser Party.');
         }
 
-        $data = $request->validate([
+        $activeTalents = Talent::query()
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->get(['key', 'max_points']);
+
+        $talentKeys = $activeTalents->pluck('key')->all();
+
+        $rules = [
             'name' => ['required', 'string', 'max:80'],
             'race' => [
                 'required',
@@ -49,7 +58,35 @@ class PartyCharacterController extends Controller
             'weight_kg' => ['required', 'integer', 'min:20', 'max:300'],
             'traits' => ['required', 'array', 'min:1', 'max:4'],
             'traits.*' => ['string', 'max:40'],
-        ]);
+            'talents' => ['required', 'array'],
+        ];
+
+        foreach ($activeTalents as $talent) {
+            $rules["talents.{$talent->key}"] = ['required', 'integer', 'min:0', 'max:'.$talent->max_points];
+        }
+
+        $validator = Validator::make($request->all(), $rules);
+
+        $validator->after(function ($validator) use ($request, $talentKeys) {
+            $talents = (array) $request->input('talents', []);
+            $submittedKeys = array_keys($talents);
+            sort($submittedKeys);
+            $expectedKeys = $talentKeys;
+            sort($expectedKeys);
+
+            if ($submittedKeys !== $expectedKeys) {
+                $validator->errors()->add('talents', 'Ungültige Talente übermittelt.');
+                return;
+            }
+
+            $totalPoints = array_sum(array_map('intval', $talents));
+            $maxTotal = config('game.character_talent_point_pool', 35);
+            if ($totalPoints > $maxTotal) {
+                $validator->errors()->add('talents', "Du kannst maximal {$maxTotal} Talentpunkte verteilen.");
+            }
+        });
+
+        $data = $validator->validate();
 
         $character = PartyCharacter::create([
             'party_id' => $party->id,
@@ -62,6 +99,7 @@ class PartyCharacterController extends Controller
             'height_cm' => $data['height_cm'],
             'weight_kg' => $data['weight_kg'],
             'traits' => $data['traits'],
+            'talents' => $data['talents'],
         ]);
 
         if ($character) {

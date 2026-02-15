@@ -22,10 +22,12 @@ class PartyCharacter extends Model
         'height_cm',
         'weight_kg',
         'traits',
+        'talents',
     ];
 
     protected $casts = [
         'traits' => 'array',
+        'talents' => 'array',
     ];
 
     public function party(): BelongsTo
