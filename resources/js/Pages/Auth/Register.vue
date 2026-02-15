@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
 import GuestLayout from '@/Layouts/GuestLayout.vue';
 import InputError from '@/Components/InputError.vue';
@@ -97,7 +97,7 @@ const submit = () => {
                 </div>
 
                 <div class="mb-3">
-                    <InputLabel for="password_confirmation" value="Passwort bestaetigen" />
+                    <InputLabel for="password_confirmation" value="Passwort bestätigen" />
 
                     <TextInput
                         id="password_confirmation"
@@ -117,7 +117,7 @@ const submit = () => {
                     </Link>
 
                     <PrimaryButton :class="{ disabled: form.processing }" :disabled="form.processing">
-                        <span v-if="form.processing">Registrierung laeuft...</span>
+                        <span v-if="form.processing">Registrierung läuft...</span>
                         <span v-else>Registrieren</span>
                     </PrimaryButton>
                 </div>
@@ -125,3 +125,4 @@ const submit = () => {
         </form>
     </GuestLayout>
 </template>
+

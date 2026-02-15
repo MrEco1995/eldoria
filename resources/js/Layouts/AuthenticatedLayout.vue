@@ -48,6 +48,9 @@ const page = usePage();
                             <li>
                                 <Link class="dropdown-item" :href="route('parties.create')">Party erstellen</Link>
                             </li>
+                            <li>
+                                <Link class="dropdown-item" :href="route('lore.history')">Eldoria Chronik</Link>
+                            </li>
                             <hr></hr>
                             <li>
                                 <Link class="dropdown-item" :href="route('logout')" method="post" as="button">

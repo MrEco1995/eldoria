@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Party;
 use App\Models\PartyInvite;
+use App\Models\Race;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -137,6 +138,31 @@ class PartyController extends Controller
                 'url' => route('parties.invites.join', $invite->token),
                 'expiresAt' => $invite->expires_at->toIso8601String(),
             ] : null,
+            'races' => Race::query()
+                ->where('is_active', true)
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->get([
+                    'name',
+                    'description',
+                    'essence',
+                    'appearance',
+                    'age_text',
+                    'height_text',
+                    'weight_text',
+                    'good_with',
+                    'bad_with',
+                ])->map(fn ($race) => [
+                    'name' => $race->name,
+                    'description' => $race->description,
+                    'essence' => $race->essence,
+                    'appearance' => $race->appearance,
+                    'age' => $race->age_text,
+                    'height' => $race->height_text,
+                    'weight' => $race->weight_text,
+                    'goodWith' => $race->good_with ?? [],
+                    'badWith' => $race->bad_with ?? [],
+                ])->values(),
             'isOwner' => $party->owner_id === $userId,
         ]);
     }

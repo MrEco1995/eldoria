@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import DangerButton from '@/Components/DangerButton.vue';
 import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
@@ -50,17 +50,17 @@ const closeModal = () => {
             </p>
         </header>
 
-        <DangerButton @click="confirmUserDeletion">Konto loeschen</DangerButton>
+        <DangerButton @click="confirmUserDeletion">Konto löschen</DangerButton>
 
         <Modal :show="confirmingUserDeletion" @close="closeModal">
             <div class="p-4">
                 <h2 class="h5">
-                    Bist du sicher, dass du dein Konto loeschen willst?
+                    Bist du sicher, dass du dein Konto löschen willst?
                 </h2>
 
                 <p class="text-muted">
-                    Nach dem Loeschen werden alle Daten dauerhaft entfernt.
-                    Bitte gib dein Passwort ein, um das Loeschen zu bestaetigen.
+                    Nach dem Löschen werden alle Daten dauerhaft entfernt.
+                    Bitte gib dein Passwort ein, um das Löschen zu bestätigen.
                 </p>
 
                 <div class="mt-3">
@@ -92,10 +92,11 @@ const closeModal = () => {
                         :disabled="form.processing"
                         @click="deleteUser"
                     >
-                        Konto loeschen
+                        Konto löschen
                     </DangerButton>
                 </div>
             </div>
         </Modal>
     </section>
 </template>
+

@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
@@ -67,14 +67,14 @@ const form = useForm({
 
             <div v-if="mustVerifyEmail && user.email_verified_at === null">
                 <p class="text-muted">
-                    Deine E-Mail-Adresse ist nicht bestaetigt.
+                    Deine E-Mail-Adresse ist nicht bestätigt.
                     <Link
                         :href="route('verification.send')"
                         method="post"
                         as="button"
                         class="btn btn-link p-0 align-baseline"
                     >
-                        Klicke hier, um die Bestaetigungs-E-Mail erneut zu senden.
+                        Klicke hier, um die Bestätigungs-E-Mail erneut zu senden.
                     </Link>
                 </p>
 
@@ -82,7 +82,7 @@ const form = useForm({
                     v-show="status === 'verification-link-sent'"
                     class="alert alert-success py-2"
                 >
-                    Ein neuer Bestaetigungslink wurde an deine E-Mail-Adresse gesendet.
+                    Ein neuer Bestätigungslink wurde an deine E-Mail-Adresse gesendet.
                 </div>
             </div>
 
@@ -103,3 +103,4 @@ const form = useForm({
         </form>
     </section>
 </template>
+

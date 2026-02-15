@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
@@ -74,7 +74,7 @@ const updatePassword = () => {
             <div class="mb-3">
                 <InputLabel
                     for="password_confirmation"
-                    value="Passwort bestaetigen"
+                    value="Passwort bestätigen"
                 />
 
                 <TextInput
@@ -104,3 +104,4 @@ const updatePassword = () => {
         </form>
     </section>
 </template>
+

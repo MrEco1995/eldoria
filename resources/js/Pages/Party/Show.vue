@@ -1,7 +1,7 @@
-<script setup>
+﻿<script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 const props = defineProps({
     party: {
@@ -21,6 +21,10 @@ const props = defineProps({
         default: null,
     },
     characters: {
+        type: Array,
+        default: () => [],
+    },
+    races: {
         type: Array,
         default: () => [],
     },
@@ -124,65 +128,78 @@ const traits = [
     'Pragmatisch',
     'Humorvoll',
     'Misstrauisch',
-    'Aengstlich',
-    'Grosszuegig',
+    'Ängstlich',
+    'Großzügig',
 ];
 
-const races = [
-    {
-        name: 'Menschen',
-        description:
-            'Anpassungsfaehig, ehrgeizig, politisch zersplittert. Menschen bauen Reiche schnell auf und reissen sie ebenso schnell wieder ein.',
-        goodWith: ['Zwerge (Handel)', 'Orks (Soeldner)', 'Faelun (lokal)'],
-        badWith: ['Noctyr (Angst vor Manipulation)', 'Tharokh (Furcht vor Unbeugsamkeit)'],
-    },
-    {
-        name: 'Elfen (Sylvarin)',
-        description:
-            'Langlebig, naturverbunden, magisch begabt. Sehen sich als Hueter eines Gleichgewichts, das andere staendig gefaehrden.',
-        goodWith: ['Faelun', 'ausgewaehlte Menschen'],
-        badWith: ['Orks (alte Kriegswunden)', 'Noctyr (ungeklaerte Schuld)'],
-    },
-    {
-        name: 'Zwerge (Kharun)',
-        description:
-            'Stolz, traditionsbewusst, meisterhafte Handwerker. Vertrauen wird langsam gewonnen, aber haelt ewig.',
-        goodWith: ['Menschen', 'Tharokh'],
-        badWith: ['Orks (Blutfehden)', 'Noctyr (Geheimniskraemerei)'],
-    },
-    {
-        name: 'Orks (Grum)',
-        description:
-            'Stammeskrieger mit Ehrenkodex. Direkt, laut, ehrlich und missverstanden.',
-        goodWith: ['Menschen (Soeldner)', 'Tharokh'],
-        badWith: ['Elfen (jahrhundertelange Kriege)', 'Faelun (Jagdgebiete)'],
-    },
-    {
-        name: 'Faelun - Wandelbluetige',
-        description:
-            'Naturverbundene Sippenwesen mit tierischen Aspekten. Freiheitsliebend, zyklisches Denken, schwer greifbar.',
-        goodWith: ['Elfen', 'Noctyr (seltene Buendnisse)'],
-        badWith: ['Menschen (Aberglaube)', 'Orks (Territoriale Konflikte)'],
-    },
-    {
-        name: 'Noctyr - Schattengeborene',
-        description:
-            'Geheimnisvolle Bewahrer von Erinnerungen und verbotener Geschichte. Leben im Zwielicht zwischen Wahrheit und Vergessen.',
-        goodWith: ['Faelun', 'pragmatische Menschen'],
-        badWith: ['Elfen (alte Schuld)', 'Zwerge (Misstrauen)', 'Tharokh (Schatten vs. Bestaendigkeit)'],
-    },
-    {
-        name: 'Tharokh - Steinbluetige',
-        description:
-            'Magieresistente, uralte Kriegerwesen. Still, unbeugsam, ehrwuerdig - lebende Monolithen.',
-        goodWith: ['Zwerge', 'Orks (respektvolle Staerke)'],
-        badWith: ['Noctyr (Manipulation)', 'Menschen (Expansion)'],
-    },
-];
+const races = computed(() => props.races ?? []);
 
 const selectedRace = computed(() => {
-    return races.find((race) => race.name === characterForm.race);
+    return races.value.find((race) => race.name === characterForm.race);
 });
+
+const raceImageBaseMap = {
+    Menschen: 'Mensch',
+    Elfen: 'Elf',
+    Zwerge: 'Zwerg',
+    Orks: 'Ork',
+    Faelun: 'Faelun',
+    Noctyr: 'Noctyr',
+    Tharokh: 'Tharokh',
+};
+
+const genderImageSuffixMap = {
+    Männlich: 'Man',
+    Weiblich: 'Woman',
+};
+
+const racePreviewSources = computed(() => {
+    if (!characterForm.race || !characterForm.gender) {
+        return [];
+    }
+
+    const raceKey = Object.keys(raceImageBaseMap).find((key) => characterForm.race.startsWith(key));
+    const genderSuffix = genderImageSuffixMap[characterForm.gender];
+
+    if (!raceKey || !genderSuffix) {
+        return [];
+    }
+
+    const base = raceImageBaseMap[raceKey];
+    const candidates = [
+        `${base}${genderSuffix}.jpeg`,
+        `${base}${genderSuffix}.jpg`,
+        `${base}${genderSuffix}.png`,
+        `${base}.jpeg`,
+        `${base}.jpg`,
+        `${base}.png`,
+    ];
+
+    return candidates.map((path) => route('media.public', { path }));
+});
+
+const racePreviewIndex = ref(0);
+
+watch(
+    racePreviewSources,
+    () => {
+        racePreviewIndex.value = 0;
+    },
+    { immediate: true },
+);
+
+const currentRacePreviewSrc = computed(() => {
+    return racePreviewSources.value[racePreviewIndex.value] ?? null;
+});
+
+const handleRacePreviewError = () => {
+    if (racePreviewIndex.value < racePreviewSources.value.length - 1) {
+        racePreviewIndex.value += 1;
+        return;
+    }
+
+    racePreviewIndex.value = racePreviewSources.value.length;
+};
 
 const missingCharacterCount = computed(() => {
     const memberIds = membersState.value
@@ -235,7 +252,7 @@ onBeforeUnmount(() => {
                         </div>
                         <h5 class="card-title mb-2">Einladung</h5>
                         <p class="text-muted mb-4">
-                            Teile den Einladungslink. Er ist 30 Minuten gueltig.
+                            Teile den Einladungslink. Er ist 30 Minuten gültig.
                         </p>
 
                         <div v-if="invite" class="mb-3">
@@ -256,7 +273,7 @@ onBeforeUnmount(() => {
                                 </button>
                             </div>
                             <div class="text-muted small mt-2">
-                                Gueltig bis: {{ inviteExpiresText }}
+                                Gültig bis: {{ inviteExpiresText }}
                             </div>
                         </div>
 
@@ -283,7 +300,7 @@ onBeforeUnmount(() => {
                                 :class="{ disabled: !canCloseParty }"
                                 :disabled="!canCloseParty"
                             >
-                                Party schliessen
+                                Party schließen
                             </Link>
                         </div>
                     </div>
@@ -460,6 +477,38 @@ onBeforeUnmount(() => {
                                 <div class="alert alert-info border-0 mb-0">
                                     <div class="fw-semibold mb-1">{{ selectedRace.name }}</div>
                                     <div class="mb-2">{{ selectedRace.description }}</div>
+                                    <div class="mb-3">
+                                        <div v-if="currentRacePreviewSrc" class="rounded overflow-hidden border bg-white">
+                                            <img
+                                                :src="currentRacePreviewSrc"
+                                                :alt="`Völkerbild ${selectedRace.name} ${characterForm.gender}`"
+                                                class="img-fluid d-block mx-auto"
+                                                style="max-height: 240px; object-fit: cover;"
+                                                @error="handleRacePreviewError"
+                                            />
+                                        </div>
+                                        <div v-else-if="characterForm.gender" class="small text-muted">
+                                            Kein Bild für diese Kombination gefunden.
+                                        </div>
+                                        <div v-else class="small text-muted">
+                                            Wähle zusätzlich ein Geschlecht, um ein Völkerbild zu sehen.
+                                        </div>
+                                    </div>
+                                    <div class="small fw-semibold mt-3 mb-1">Wesen</div>
+                                    <ul class="small mb-2">
+                                        <li v-for="item in selectedRace.essence" :key="`essence-${item}`">
+                                            {{ item }}
+                                        </li>
+                                    </ul>
+                                    <div class="small fw-semibold mt-2 mb-1">Aussehen</div>
+                                    <ul class="small mb-2">
+                                        <li v-for="item in selectedRace.appearance" :key="`appearance-${item}`">
+                                            {{ item }}
+                                        </li>
+                                    </ul>
+                                    <div class="small"><span class="fw-semibold">Alter:</span> {{ selectedRace.age }}</div>
+                                    <div class="small"><span class="fw-semibold">Größe:</span> {{ selectedRace.height }}</div>
+                                    <div class="small mb-2"><span class="fw-semibold">Gewicht:</span> {{ selectedRace.weight }}</div>
                                     <div class="small">
                                         <span class="fw-semibold">Kommen gut klar mit:</span>
                                         {{ selectedRace.goodWith.join(', ') }}
@@ -557,7 +606,7 @@ onBeforeUnmount(() => {
                             </div>
 
                             <div class="col-12">
-                                <label class="form-label">Charakterzuege (max. 4)</label>
+                                <label class="form-label">Charakterzüge (max. 4)</label>
                                 <div class="row g-2">
                                     <div
                                         v-for="item in traits"
@@ -583,7 +632,7 @@ onBeforeUnmount(() => {
                                     {{ characterForm.errors.traits }}
                                 </div>
                                 <div class="text-muted small mt-1">
-                                    Ausgewaehlt: {{ characterForm.traits.length }} / 4
+                                    Ausgewählt: {{ characterForm.traits.length }} / 4
                                 </div>
                             </div>
 
@@ -651,5 +700,6 @@ onBeforeUnmount(() => {
         </div>
     </AuthenticatedLayout>
 </template>
+
 
 

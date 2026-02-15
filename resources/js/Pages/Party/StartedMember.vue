@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head } from '@inertiajs/vue3';
 import { onBeforeUnmount, onMounted, ref } from 'vue';
@@ -53,9 +53,9 @@ onBeforeUnmount(() => {
                 <div class="text-uppercase small text-muted mb-2" style="letter-spacing: 2px;">
                     Spielmodus
                 </div>
-                <h3 class="display-6 fw-semibold mb-2">Bereit fuer das Abenteuer</h3>
+                <h3 class="display-6 fw-semibold mb-2">Bereit für das Abenteuer</h3>
                 <p class="text-muted mb-4">
-                    Die Party laeuft. Warte auf die naechsten Anweisungen.
+                    Die Party läuft. Warte auf die nächsten Anweisungen.
                 </p>
 
                 <div class="card border-0 shadow-sm magic-card">
@@ -126,3 +126,4 @@ onBeforeUnmount(() => {
     color: rgba(219, 224, 255, 0.7) !important;
 }
 </style>
+

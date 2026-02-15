@@ -7,6 +7,7 @@ use App\Models\PartyCharacter;
 use App\Jobs\GenerateCharacterImage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class PartyCharacterController extends Controller
 {
@@ -35,7 +36,12 @@ class PartyCharacterController extends Controller
 
         $data = $request->validate([
             'name' => ['required', 'string', 'max:80'],
-            'race' => ['required', 'string', 'max:60'],
+            'race' => [
+                'required',
+                'string',
+                'max:120',
+                Rule::exists('races', 'name')->where('is_active', true),
+            ],
             'class_name' => ['required', 'string', 'max:60'],
             'gender' => ['required', 'string', 'max:30'],
             'age' => ['required', 'integer', 'min:1', 'max:200'],

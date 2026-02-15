@@ -21,7 +21,11 @@ Route::get('/', function () {
         'laravelVersion' => Application::VERSION,
         'phpVersion' => PHP_VERSION,
     ]);
-});
+})->name('welcome');
+
+Route::get('/eldoria/geschichte', function () {
+    return Inertia::render('Lore/History');
+})->name('lore.history');
 
 Route::get('/media/public/{path}', [PublicMediaController::class, 'show'])
     ->where('path', '.*')

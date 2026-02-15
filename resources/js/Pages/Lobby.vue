@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link } from '@inertiajs/vue3';
 
@@ -55,7 +55,13 @@ defineProps({
                             >
                                 Party erstellen
                             </Link>
-                            <div v-else class="text-muted small">
+                            <Link
+                                :href="route('lore.history')"
+                                class="btn btn-outline-dark btn-sm"
+                            >
+                                Eldoria Chronik lesen
+                            </Link>
+                            <div v-if="inStartedParty" class="text-muted small">
                                 Du bist bereits in einer gestarteten Party.
                             </div>
                         </div>
@@ -152,7 +158,7 @@ defineProps({
                         <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-3">
                             <div>
                                 <div class="text-uppercase small text-muted mb-2" style="letter-spacing: 2px;">
-                                    Atmosphaere
+                                    Atmosphäre
                                 </div>
                                 <h5 class="mb-1">Die Lobby lebt</h5>
                                 <p class="text-muted mb-0">
@@ -178,3 +184,4 @@ defineProps({
         </div>
     </AuthenticatedLayout>
 </template>
+

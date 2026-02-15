@@ -26,6 +26,12 @@ defineProps({
                 </p>
                 <div class="d-flex justify-content-center gap-2">
                     <Link
+                        class="btn btn-outline-dark"
+                        :href="route('lore.history')"
+                    >
+                        Eldoria Chronik
+                    </Link>
+                    <Link
                         v-if="canLogin && $page.props.auth.user"
                         class="btn btn-primary"
                         :href="route('lobby')"

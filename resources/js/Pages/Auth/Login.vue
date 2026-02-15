@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
 import Checkbox from '@/Components/Checkbox.vue';
 import GuestLayout from '@/Layouts/GuestLayout.vue';
@@ -102,7 +102,7 @@ const submit = () => {
                     </Link>
 
                     <PrimaryButton :class="{ disabled: form.processing }" :disabled="form.processing">
-                        <span v-if="form.processing">Anmeldung laeuft...</span>
+                        <span v-if="form.processing">Anmeldung läuft...</span>
                         <span v-else>Anmelden</span>
                     </PrimaryButton>
                 </div>
@@ -117,3 +117,4 @@ const submit = () => {
         </form>
     </GuestLayout>
 </template>
+

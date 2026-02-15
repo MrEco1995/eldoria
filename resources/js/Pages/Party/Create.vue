@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
@@ -36,7 +36,7 @@ const submit = () => {
                         </div>
                         <h5 class="card-title mb-2">Neue Party</h5>
                         <p class="text-muted mb-4">
-                            Der Einladungslink ist 30 Minuten gueltig und kann spaeter neu erstellt werden.
+                            Der Einladungslink ist 30 Minuten gültig und kann später neu erstellt werden.
                         </p>
 
                         <form @submit.prevent="submit">
@@ -70,3 +70,4 @@ const submit = () => {
         </div>
     </AuthenticatedLayout>
 </template>
+
