@@ -6,6 +6,7 @@ use App\Models\Party;
 use App\Events\PartyReadyUpdated;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Throwable;
 
 class PartyMemberController extends Controller
 {
@@ -26,7 +27,11 @@ class PartyMemberController extends Controller
             'is_ready' => $newReady,
         ]);
 
-        event(new PartyReadyUpdated($party->id, $user->id, $newReady));
+        try {
+            event(new PartyReadyUpdated($party->id, $user->id, $newReady));
+        } catch (Throwable $exception) {
+            report($exception);
+        }
 
         return redirect()->route('parties.show', $party);
     }
