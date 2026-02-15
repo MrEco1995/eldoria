@@ -1,6 +1,7 @@
 ﻿<script setup>
+import DiceRoller from '@/Components/DiceRoller.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, Link, router, useForm } from '@inertiajs/vue3';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 const props = defineProps({
@@ -44,6 +45,8 @@ const props = defineProps({
 
 const isStarted = computed(() => !!props.party.startedAt);
 const membersState = ref([...props.members]);
+const page = usePage();
+const authUserId = computed(() => page.props.auth?.user?.id ?? null);
 
 const allReady = computed(() => {
     if (!membersState.value.length) {
@@ -306,6 +309,10 @@ const missingCharacterCount = computed(() => {
     return memberIds.filter((id) => !withCharacter.includes(id)).length;
 });
 
+const canViewCharacterDetails = (entry) => {
+    return Number(entry.user_id) === Number(authUserId.value);
+};
+
 const onReadyUpdated = (event) => {
     const target = membersState.value.find((member) => member.id === event.userId);
     if (target) {
@@ -515,12 +522,19 @@ onBeforeUnmount(() => {
                         <div class="text-uppercase small text-muted mb-2" style="letter-spacing: 2px;">
                             Charakter
                         </div>
-                        <h5 class="card-title mb-2">Dein Charakter</h5>
-                        <p class="text-muted mb-4">
+                        <h5 class="card-title mb-2">{{ isOwner ? 'Charakterübersicht' : 'Dein Charakter' }}</h5>
+                        <p v-if="!isOwner" class="text-muted mb-4">
                             Ein Charakter pro Party und Spieler. Owner kann keinen erstellen.
                         </p>
+                        <p v-else class="text-muted mb-4">
+                            Als Party-Owner siehst du nur die erstellten Charaktere.
+                        </p>
 
-                        <div v-if="character" class="alert alert-success border-0">
+                        <div v-if="isOwner" class="alert alert-info border-0">
+                            Charakter-Erstellung ist nur für Mitglieder verfügbar.
+                        </div>
+
+                        <div v-else-if="character" class="alert alert-success border-0">
                             <div>
                                 Charakter erstellt: <strong>{{ character.name }}</strong>
                             </div>
@@ -838,9 +852,6 @@ onBeforeUnmount(() => {
                                     </button>
                                 </div>
                             </template>
-                            <div v-if="isOwner" class="text-muted small">
-                                Owner kann keinen Charakter erstellen.
-                            </div>
                         </form>
 
                         <div class="mt-4">
@@ -867,19 +878,24 @@ onBeforeUnmount(() => {
                                         <div>
                                             <div class="fw-semibold">{{ entry.name }}</div>
                                             <div class="text-muted small">
-                                                {{ entry.race }} · {{ entry.class_name }} · {{ entry.gender }}
+                                                Volk: {{ entry.race }} · Geschlecht: {{ entry.gender }}
+                                            </div>
+                                            <div class="text-muted small">
+                                                Klasse: {{ entry.class_name }}
                                             </div>
                                             <div class="text-muted small">
                                                 {{ entry.age }}J · {{ entry.height_cm }}cm · {{ entry.weight_kg }}kg
                                             </div>
-                                            <div class="d-flex flex-wrap gap-1 mt-1">
-                                                <span
-                                                    v-for="trait in entry.traits"
-                                                    :key="trait"
-                                                    class="badge text-bg-light border"
-                                                >
-                                                    {{ trait }}
-                                                </span>
+                                            <div v-if="canViewCharacterDetails(entry)">
+                                                <div class="d-flex flex-wrap gap-1 mt-1">
+                                                    <span
+                                                        v-for="trait in entry.traits"
+                                                        :key="trait"
+                                                        class="badge text-bg-light border"
+                                                    >
+                                                        {{ trait }}
+                                                    </span>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -889,6 +905,8 @@ onBeforeUnmount(() => {
                         </div>
                     </div>
                 </div>
+
+                <DiceRoller :party-id="party.id" />
             </div>
         </div>
     </AuthenticatedLayout>
