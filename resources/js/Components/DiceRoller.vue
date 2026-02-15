@@ -108,9 +108,9 @@ onBeforeUnmount(() => {
         <div class="card shadow-sm border-0">
             <div class="card-body p-3">
                 <div class="text-uppercase small text-muted mb-2" style="letter-spacing: 2px;">
-                    Wuerfeln
+                    Würfeln
                 </div>
-                <h5 class="card-title mb-3">Schneller Wuerfelwurf</h5>
+                <h5 class="card-title mb-3">Schneller Würfelwurf</h5>
 
                 <div class="d-flex gap-2 flex-wrap">
                     <button

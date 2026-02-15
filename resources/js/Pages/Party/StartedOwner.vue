@@ -1,6 +1,6 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head } from '@inertiajs/vue3';
+import { Head, Link } from '@inertiajs/vue3';
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 
 const props = defineProps({
@@ -94,9 +94,19 @@ onBeforeUnmount(() => {
                                     Hier kommen deine Owner-Controls hin (z. B. Runde starten,
                                     Regeln aendern, Timer).
                                 </p>
-                                <button class="btn btn-primary" disabled>
-                                    Owner Aktion
-                                </button>
+                                <div class="d-flex gap-2 flex-wrap">
+                                    <button class="btn btn-primary" disabled>
+                                        Owner Aktion
+                                    </button>
+                                    <Link
+                                        :href="route('parties.end', party.id)"
+                                        method="post"
+                                        as="button"
+                                        class="btn btn-outline-danger"
+                                    >
+                                        Party beenden
+                                    </Link>
+                                </div>
                             </div>
                         </div>
                     </div>

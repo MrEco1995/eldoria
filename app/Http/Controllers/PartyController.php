@@ -268,6 +268,27 @@ class PartyController extends Controller
         return redirect()->route('lobby')->with('status', 'Party wurde geschlossen.');
     }
 
+    public function end(Request $request, Party $party): RedirectResponse
+    {
+        if ($party->owner_id !== $request->user()->id) {
+            abort(403);
+        }
+
+        if (! $party->started_at) {
+            return redirect()
+                ->route('parties.show', $party)
+                ->with('status', 'Party ist bereits nicht gestartet.');
+        }
+
+        $party->update([
+            'started_at' => null,
+        ]);
+
+        return redirect()
+            ->route('parties.show', $party)
+            ->with('status', 'Party wurde beendet.');
+    }
+
     private function createInvite(Party $party, int $userId): PartyInvite
     {
         return PartyInvite::create([
