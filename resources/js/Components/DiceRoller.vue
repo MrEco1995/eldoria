@@ -69,14 +69,19 @@ const roll = (sides, dieLabel) => {
                 die: dieLabel,
                 result: value,
             });
-        } catch {
+        } catch (error) {
             appendRoll({
                 userName: 'Du',
                 die: dieLabel,
                 result: value,
                 rolledAt: new Date().toISOString(),
             });
-            rollError.value = 'Wurf konnte nicht live uebertragen werden.';
+            if (error?.response?.status === 419) {
+                rollError.value = error?.response?.data?.message
+                    ?? 'Sitzung abgelaufen. Bitte Seite neu laden und erneut versuchen.';
+            } else {
+                rollError.value = 'Wurf konnte nicht live uebertragen werden.';
+            }
         } finally {
             isRolling.value = false;
             activeDie.value = null;

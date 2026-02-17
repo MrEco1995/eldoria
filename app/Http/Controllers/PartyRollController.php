@@ -8,7 +8,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
-use Throwable;
 
 class PartyRollController extends Controller
 {
@@ -26,20 +25,22 @@ class PartyRollController extends Controller
         $max = $data['die'] === 'W20' ? 20 : 6;
         if ($data['result'] > $max) {
             throw ValidationException::withMessages([
-                'result' => 'Ungültiges Würfelergebnis.',
+                'result' => 'Ungueltiges Wuerfelergebnis.',
             ]);
         }
 
-        try {
-            event(new PartyRollCreated(
-                partyId: $party->id,
-                userId: $user->id,
-                userName: $user->name,
-                die: $data['die'],
-                result: $data['result'],
-            ));
-        } catch (Throwable $exception) {
-            report($exception);
+        if (config('realtime.enabled')) {
+            try {
+                event(new PartyRollCreated(
+                    partyId: $party->id,
+                    userId: $user->id,
+                    userName: $user->name,
+                    die: $data['die'],
+                    result: $data['result'],
+                ));
+            } catch (\Throwable $exception) {
+                // Ignore broadcast failures to keep roll endpoint functional.
+            }
         }
 
         return response()->json(['ok' => true], 201);

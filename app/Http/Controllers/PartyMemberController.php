@@ -6,7 +6,6 @@ use App\Models\Party;
 use App\Events\PartyReadyUpdated;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Throwable;
 
 class PartyMemberController extends Controller
 {
@@ -27,10 +26,12 @@ class PartyMemberController extends Controller
             'is_ready' => $newReady,
         ]);
 
-        try {
-            event(new PartyReadyUpdated($party->id, $user->id, $newReady));
-        } catch (Throwable $exception) {
-            report($exception);
+        if (config('realtime.enabled')) {
+            try {
+                event(new PartyReadyUpdated($party->id, $user->id, $newReady));
+            } catch (\Throwable $exception) {
+                // Ignore broadcast failures to keep ready-toggle functional.
+            }
         }
 
         return redirect()->route('parties.show', $party);

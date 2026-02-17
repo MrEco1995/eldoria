@@ -12,18 +12,23 @@ import Pusher from 'pusher-js';
 
 window.Pusher = Pusher;
 
+const realtimeEnabled = (import.meta.env.VITE_REALTIME_ENABLED ?? 'true') === 'true';
 const echoKey = import.meta.env.VITE_REVERB_APP_KEY ?? import.meta.env.VITE_PUSHER_APP_KEY;
 const echoHost = import.meta.env.VITE_REVERB_HOST ?? import.meta.env.VITE_PUSHER_HOST ?? '127.0.0.1';
 const echoPort = import.meta.env.VITE_REVERB_PORT ?? import.meta.env.VITE_PUSHER_PORT ?? 6001;
 const echoScheme = import.meta.env.VITE_REVERB_SCHEME ?? import.meta.env.VITE_PUSHER_SCHEME ?? 'http';
 
-window.Echo = new Echo({
-    broadcaster: 'pusher',
-    key: echoKey,
-    cluster: 'mt1',
-    wsHost: echoHost,
-    wsPort: echoPort,
-    wssPort: echoPort,
-    forceTLS: echoScheme === 'https',
-    enabledTransports: ['ws', 'wss'],
-});
+if (realtimeEnabled && echoKey) {
+    window.Echo = new Echo({
+        broadcaster: 'pusher',
+        key: echoKey,
+        cluster: 'mt1',
+        wsHost: echoHost,
+        wsPort: echoPort,
+        wssPort: echoPort,
+        forceTLS: echoScheme === 'https',
+        enabledTransports: ['ws', 'wss'],
+    });
+} else {
+    window.Echo = null;
+}

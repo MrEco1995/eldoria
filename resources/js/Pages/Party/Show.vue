@@ -47,6 +47,7 @@ const isStarted = computed(() => !!props.party.startedAt);
 const membersState = ref([...props.members]);
 const page = usePage();
 const authUserId = computed(() => page.props.auth?.user?.id ?? null);
+let membersPollIntervalId = null;
 
 const allReady = computed(() => {
     if (!membersState.value.length) {
@@ -123,8 +124,35 @@ const copyInvite = async () => {
     }, 1500);
 };
 
-const toggleReady = () => {
-    router.post(route('parties.ready.toggle', props.party.id));
+const refreshMembers = () => {
+    router.reload({
+        only: ['members'],
+        preserveScroll: true,
+        preserveState: true,
+    });
+};
+
+const toggleReady = (member = null) => {
+    const previous = member ? !!member.is_ready : null;
+
+    // Optimistic UI update for the current user.
+    if (member) {
+        member.is_ready = !member.is_ready;
+    }
+
+    router.post(route('parties.ready.toggle', props.party.id), {}, {
+        preserveScroll: true,
+        preserveState: true,
+        onError: () => {
+            if (member) {
+                member.is_ready = previous;
+            }
+        },
+        onSuccess: () => {
+            // Keep list in sync even without realtime broadcasting.
+            refreshMembers();
+        },
+    });
 };
 
 const submitCharacter = () => {
@@ -239,6 +267,14 @@ const handleRacePreviewError = () => {
 };
 
 watch(
+    () => props.members,
+    (nextMembers) => {
+        membersState.value = [...nextMembers];
+    },
+    { immediate: true },
+);
+
+watch(
     () => props.talents,
     (nextTalents) => {
         const keys = new Set((nextTalents ?? []).map((talent) => talent.key));
@@ -324,10 +360,18 @@ onMounted(() => {
     if (window.Echo) {
         window.Echo.private(`party.${props.party.id}`)
             .listen('.party.ready.updated', onReadyUpdated);
+    } else {
+        // Fallback when realtime is disabled/unavailable.
+        membersPollIntervalId = setInterval(refreshMembers, 3000);
     }
 });
 
 onBeforeUnmount(() => {
+    if (membersPollIntervalId) {
+        clearInterval(membersPollIntervalId);
+        membersPollIntervalId = null;
+    }
+
     if (window.Echo) {
         window.Echo.leave(`party.${props.party.id}`);
     }
@@ -469,7 +513,7 @@ onBeforeUnmount(() => {
                                                 :class="member.is_ready ? 'bg-success border-success' : 'bg-danger border-danger'"
                                                 type="checkbox"
                                                 :checked="member.is_ready"
-                                                @change="toggleReady"
+                                                @change="toggleReady(member)"
                                             />
                                         </div>
                                     </div>

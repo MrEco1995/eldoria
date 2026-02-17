@@ -23,14 +23,23 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->render(function (TokenMismatchException $exception, Request $request) {
+            $message = 'Deine Sitzung ist abgelaufen. Bitte Seite neu laden und erneut versuchen.';
+
+            // Inertia requests should always redirect back with flash message.
+            if ($request->header('X-Inertia')) {
+                return back(303)
+                    ->withInput($request->except('_token'))
+                    ->with('error', $message);
+            }
+
             if ($request->expectsJson()) {
                 return response()->json([
-                    'message' => 'Sitzung abgelaufen. Bitte Seite neu laden und erneut versuchen.',
+                    'message' => $message,
                 ], 419);
             }
 
             return back()
                 ->withInput($request->except('_token'))
-                ->with('error', 'Deine Sitzung ist abgelaufen. Bitte Seite neu laden und erneut versuchen.');
+                ->with('error', $message);
         });
     })->create();
