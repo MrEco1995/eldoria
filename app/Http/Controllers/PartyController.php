@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\PartyStarted;
 use App\Models\Party;
 use App\Models\PartyInvite;
 use App\Models\Race;
@@ -216,6 +217,18 @@ class PartyController extends Controller
         $party->update([
             'started_at' => now(),
         ]);
+        $party->refresh();
+
+        if (config('realtime.enabled')) {
+            try {
+                event(new PartyStarted(
+                    partyId: $party->id,
+                    startedAt: $party->started_at->toIso8601String(),
+                ));
+            } catch (\Throwable $exception) {
+                // Keep start action functional even if broadcast fails.
+            }
+        }
 
         return redirect()
             ->route('parties.started', $party)
@@ -276,6 +289,17 @@ class PartyController extends Controller
                 ->select('users.id', 'users.name', 'users.email', 'party_user.is_ready')
                 ->get(),
             'characters' => $characters,
+            'talentDefinitions' => Talent::query()
+                ->where('is_active', true)
+                ->orderBy('sort_order')
+                ->orderBy('label')
+                ->get(['key', 'label', 'category'])
+                ->map(fn ($talent) => [
+                    'key' => $talent->key,
+                    'label' => $talent->label,
+                    'category' => $talent->category,
+                ])
+                ->values(),
         ];
 
         if ($party->owner_id === $userId) {

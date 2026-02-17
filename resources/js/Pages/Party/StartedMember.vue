@@ -11,13 +11,13 @@ const props = defineProps({
         type: Object,
         required: true,
     },
+    talentDefinitions: {
+        type: Array,
+        default: () => [],
+    },
 });
 
-const formatTalentKey = (key) => {
-    return String(key)
-        .replace(/_/g, ' ')
-        .replace(/\b\w/g, (char) => char.toUpperCase());
-};
+const getTalentValue = (key) => Number(props.character?.talents?.[key] ?? 0);
 </script>
 
 <template>
@@ -61,13 +61,13 @@ const formatTalentKey = (key) => {
                             <div class="small text-uppercase text-muted mb-2" style="letter-spacing: 1px;">Talente</div>
                             <div class="row g-2">
                                 <div
-                                    v-for="(points, key) in character.talents"
-                                    :key="key"
+                                    v-for="talent in talentDefinitions"
+                                    :key="talent.key"
                                     class="col-12 col-md-6"
                                 >
                                     <div class="d-flex justify-content-between border rounded px-3 py-2 bg-light-subtle">
-                                        <span>{{ formatTalentKey(key) }}</span>
-                                        <strong>{{ points }}</strong>
+                                        <span>{{ talent.label }}</span>
+                                        <strong>{{ getTalentValue(talent.key) }}</strong>
                                     </div>
                                 </div>
                             </div>

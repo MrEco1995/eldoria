@@ -124,11 +124,22 @@ const copyInvite = async () => {
     }, 1500);
 };
 
+const goToStartedPage = () => {
+    router.visit(route('parties.started', props.party.id), {
+        preserveScroll: true,
+    });
+};
+
 const refreshMembers = () => {
     router.reload({
-        only: ['members'],
+        only: ['members', 'party'],
         preserveScroll: true,
         preserveState: true,
+        onSuccess: (page) => {
+            if (page?.props?.party?.startedAt) {
+                goToStartedPage();
+            }
+        },
     });
 };
 
@@ -356,10 +367,19 @@ const onReadyUpdated = (event) => {
     }
 };
 
+const onPartyStarted = (event) => {
+    if (Number(event.partyId) !== Number(props.party.id)) {
+        return;
+    }
+
+    goToStartedPage();
+};
+
 onMounted(() => {
     if (window.Echo) {
         window.Echo.private(`party.${props.party.id}`)
-            .listen('.party.ready.updated', onReadyUpdated);
+            .listen('.party.ready.updated', onReadyUpdated)
+            .listen('.party.started', onPartyStarted);
     } else {
         // Fallback when realtime is disabled/unavailable.
         membersPollIntervalId = setInterval(refreshMembers, 3000);
