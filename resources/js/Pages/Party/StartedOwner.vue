@@ -1,113 +1,131 @@
-<script setup>
+﻿<script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link } from '@inertiajs/vue3';
-import { onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, ref } from 'vue';
 
 const props = defineProps({
     party: {
         type: Object,
         required: true,
     },
-    members: {
+    characters: {
         type: Array,
         default: () => [],
     },
 });
 
-const membersState = ref([...props.members]);
+const playerCharacters = computed(() => props.characters ?? []);
+const activeCharacterId = ref(playerCharacters.value[0]?.id ?? null);
 
-const onReadyUpdated = (event) => {
-    const target = membersState.value.find((member) => member.id === event.userId);
-    if (target) {
-        target.is_ready = event.isReady;
-    }
+const activeCharacter = computed(() => {
+    return playerCharacters.value.find((entry) => entry.id === activeCharacterId.value) ?? null;
+});
+
+const formatTalentKey = (key) => {
+    return String(key)
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, (char) => char.toUpperCase());
 };
-
-onMounted(() => {
-    if (window.Echo) {
-        window.Echo.private(`party.${props.party.id}`)
-            .listen('.party.ready.updated', onReadyUpdated);
-    }
-});
-
-onBeforeUnmount(() => {
-    if (window.Echo) {
-        window.Echo.leave(`party.${props.party.id}`);
-    }
-});
 </script>
 
 <template>
-    <Head :title="`${party.name} - Owner`" />
+    <Head :title="`${party.name} - Spielleiter`" />
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="h4 m-0">{{ party.name }} - Owner</h2>
+            <h2 class="h4 m-0">{{ party.name }} - Spielleiter</h2>
         </template>
 
-        <div class="magic-stage position-relative overflow-hidden rounded-4 p-4 p-md-5">
-            <div class="magic-glow"></div>
-            <div class="magic-grid"></div>
-
-            <div class="position-relative">
-                <div class="text-uppercase small text-muted mb-2" style="letter-spacing: 2px;">
-                    Control Room
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <div>
+                <div class="text-uppercase small text-muted" style="letter-spacing: 2px;">
+                    Spielleiter Ansicht
                 </div>
-                <h3 class="display-6 fw-semibold mb-2">Party gestartet</h3>
-                <p class="text-muted mb-4">
-                    Du steuerst den Ablauf. Alle Spieler sind verbunden.
-                </p>
+                <div class="text-muted">Alle Charaktere deiner Party im Überblick.</div>
+            </div>
+            <Link
+                :href="route('parties.end', party.id)"
+                method="post"
+                as="button"
+                class="btn btn-outline-danger"
+            >
+                Party beenden
+            </Link>
+        </div>
 
-                <div class="row g-3">
-                    <div class="col-12 col-lg-6">
-                        <div class="card border-0 shadow-sm h-100 magic-card">
-                            <div class="card-body">
-                                <h6 class="text-uppercase small text-muted" style="letter-spacing: 2px;">
-                                    Teilnehmer
-                                </h6>
-                                <ul class="list-group list-group-flush">
-                                    <li
-                                        v-for="member in membersState"
-                                        :key="member.id"
-                                        class="list-group-item px-0 d-flex justify-content-between align-items-center"
-                                    >
-                                        <span class="fw-semibold">{{ member.name }}</span>
-                                        <span
-                                            class="badge"
-                                            :class="member.is_ready ? 'text-bg-success' : 'text-bg-secondary'"
-                                        >
-                                            {{ member.is_ready ? 'Bereit' : 'Nicht bereit' }}
-                                        </span>
-                                    </li>
-                                </ul>
+        <div v-if="playerCharacters.length === 0" class="alert alert-warning border-0">
+            Keine Charaktere gefunden.
+        </div>
+
+        <div v-else class="card shadow-sm border-0">
+            <div class="card-body p-3 p-md-4">
+                <ul class="nav nav-tabs mb-3 flex-nowrap overflow-auto" role="tablist">
+                    <li
+                        v-for="entry in playerCharacters"
+                        :key="entry.id"
+                        class="nav-item"
+                        role="presentation"
+                    >
+                        <button
+                            type="button"
+                            class="nav-link"
+                            :class="{ active: activeCharacterId === entry.id }"
+                            @click="activeCharacterId = entry.id"
+                        >
+                            {{ entry.user.name }}
+                        </button>
+                    </li>
+                </ul>
+
+                <div v-if="activeCharacter" class="row g-4">
+                    <div class="col-12 col-xl-8">
+                        <h4 class="h5 mb-1">{{ activeCharacter.name }}</h4>
+                        <div class="text-muted mb-2">
+                            {{ activeCharacter.race }} · {{ activeCharacter.class_name }} · {{ activeCharacter.gender }}
+                        </div>
+                        <div class="text-muted mb-3">
+                            {{ activeCharacter.age }} Jahre · {{ activeCharacter.height_cm }} cm · {{ activeCharacter.weight_kg }} kg
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="small text-uppercase text-muted mb-2" style="letter-spacing: 1px;">Traits</div>
+                            <div class="d-flex flex-wrap gap-2">
+                                <span
+                                    v-for="trait in activeCharacter.traits"
+                                    :key="trait"
+                                    class="badge text-bg-light border"
+                                >
+                                    {{ trait }}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="small text-uppercase text-muted mb-2" style="letter-spacing: 1px;">Talente</div>
+                            <div class="row g-2">
+                                <div
+                                    v-for="(points, key) in activeCharacter.talents"
+                                    :key="key"
+                                    class="col-12 col-md-6"
+                                >
+                                    <div class="d-flex justify-content-between border rounded px-3 py-2 bg-light-subtle">
+                                        <span>{{ formatTalentKey(key) }}</span>
+                                        <strong>{{ points }}</strong>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="col-12 col-lg-6">
-                        <div class="card border-0 shadow-sm h-100 magic-card">
-                            <div class="card-body">
-                                <h6 class="text-uppercase small text-muted" style="letter-spacing: 2px;">
-                                    Aktionen
-                                </h6>
-                                <p class="text-muted">
-                                    Hier kommen deine Owner-Controls hin (z. B. Runde starten,
-                                    Regeln aendern, Timer).
-                                </p>
-                                <div class="d-flex gap-2 flex-wrap">
-                                    <button class="btn btn-primary" disabled>
-                                        Owner Aktion
-                                    </button>
-                                    <Link
-                                        :href="route('parties.end', party.id)"
-                                        method="post"
-                                        as="button"
-                                        class="btn btn-outline-danger"
-                                    >
-                                        Party beenden
-                                    </Link>
-                                </div>
-                            </div>
+                    <div class="col-12 col-xl-4">
+                        <img
+                            v-if="activeCharacter.image_url"
+                            :src="activeCharacter.image_url"
+                            :alt="`Charakterbild von ${activeCharacter.name}`"
+                            class="img-fluid rounded border"
+                        />
+                        <div v-else class="text-muted small">
+                            Kein Charakterbild verfügbar.
                         </div>
                     </div>
                 </div>
@@ -115,45 +133,3 @@ onBeforeUnmount(() => {
         </div>
     </AuthenticatedLayout>
 </template>
-
-<style scoped>
-.magic-stage {
-    background: radial-gradient(120% 120% at 10% 10%, rgba(93, 77, 255, 0.22), rgba(12, 14, 24, 0.8)),
-        radial-gradient(120% 120% at 90% 20%, rgba(77, 208, 225, 0.18), rgba(12, 14, 24, 0));
-    border: 1px solid rgba(93, 77, 255, 0.18);
-    color: #e9ebff;
-}
-
-.magic-glow {
-    position: absolute;
-    inset: -40% auto auto -20%;
-    width: 320px;
-    height: 320px;
-    background: radial-gradient(circle, rgba(93, 77, 255, 0.35), rgba(93, 77, 255, 0));
-    filter: blur(8px);
-}
-
-.magic-grid {
-    position: absolute;
-    inset: 0;
-    background-image: radial-gradient(rgba(93, 77, 255, 0.08) 1px, transparent 1px);
-    background-size: 24px 24px;
-    opacity: 0.35;
-}
-
-.magic-card {
-    background: rgba(16, 19, 33, 0.82);
-    backdrop-filter: blur(6px);
-    border: 1px solid rgba(93, 77, 255, 0.18);
-    color: #e9ebff;
-}
-
-.magic-card .list-group-item {
-    background: transparent;
-    color: inherit;
-}
-
-.magic-stage .text-muted {
-    color: rgba(219, 224, 255, 0.7) !important;
-}
-</style>

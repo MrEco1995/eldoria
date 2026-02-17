@@ -232,6 +232,40 @@ class PartyController extends Controller
             return redirect()->route('parties.show', $party);
         }
 
+        $characters = $party->characters()
+            ->with('user:id,name')
+            ->with([
+                'mediafiles' => fn ($query) => $query
+                    ->wherePivot('role', 'character')
+                    ->latest('mediafiles.id'),
+            ])
+            ->select('id', 'party_id', 'user_id', 'name', 'race', 'class_name', 'gender', 'age', 'height_cm', 'weight_kg', 'traits', 'talents')
+            ->get()
+            ->map(function ($entry) {
+                $image = $entry->mediafiles->first();
+
+                return [
+                    'id' => $entry->id,
+                    'party_id' => $entry->party_id,
+                    'user_id' => $entry->user_id,
+                    'name' => $entry->name,
+                    'race' => $entry->race,
+                    'class_name' => $entry->class_name,
+                    'gender' => $entry->gender,
+                    'age' => $entry->age,
+                    'height_cm' => $entry->height_cm,
+                    'weight_kg' => $entry->weight_kg,
+                    'traits' => $entry->traits ?? [],
+                    'talents' => $entry->talents ?? [],
+                    'user' => [
+                        'id' => $entry->user->id,
+                        'name' => $entry->user->name,
+                    ],
+                    'image_url' => $image ? route('media.public', ['path' => $image->path]) : null,
+                ];
+            })
+            ->values();
+
         $payload = [
             'party' => [
                 'id' => $party->id,
@@ -241,11 +275,21 @@ class PartyController extends Controller
             'members' => $party->members()
                 ->select('users.id', 'users.name', 'users.email', 'party_user.is_ready')
                 ->get(),
+            'characters' => $characters,
         ];
 
         if ($party->owner_id === $userId) {
             return Inertia::render('Party/StartedOwner', $payload);
         }
+
+        $ownCharacter = $characters->firstWhere('user_id', $userId);
+        if (! $ownCharacter) {
+            return redirect()
+                ->route('parties.show', $party)
+                ->with('error', 'Dein Charakter wurde nicht gefunden.');
+        }
+
+        $payload['character'] = $ownCharacter;
 
         return Inertia::render('Party/StartedMember', $payload);
     }
