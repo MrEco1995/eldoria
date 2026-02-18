@@ -13,6 +13,23 @@ const props = defineProps({
 
 const requestState = ref([...(props.talentRequests ?? [])]);
 const rollingKeys = ref({});
+const activeTab = ref('character');
+const usePreviewFallback = ref(false);
+
+const raceImageBaseMap = {
+    Menschen: 'Mensch',
+    Elfen: 'Elf',
+    Zwerge: 'Zwerg',
+    Orks: 'Ork',
+    Faelun: 'Faelun',
+    Noctyr: 'Noctyr',
+    Tharokh: 'Tharokh',
+};
+
+const genderImageSuffixMap = {
+    Männlich: 'Man',
+    Weiblich: 'Woman',
+};
 
 watch(() => props.talentRequests, (next) => {
     requestState.value = [...(next ?? [])];
@@ -35,6 +52,74 @@ const myRequests = computed(() => {
         .filter((request) => Number(request.targetUserId) === Number(props.character.user_id))
         .sort((a, b) => Number(b.id) - Number(a.id));
 });
+
+const latestMyRequest = computed(() => myRequests.value[0] ?? null);
+
+const racePreviewSources = computed(() => {
+    if (!props.character?.race || !props.character?.gender) {
+        return [];
+    }
+
+    const raceKey = Object.keys(raceImageBaseMap).find((key) => props.character.race.startsWith(key));
+    const genderSuffix = genderImageSuffixMap[props.character.gender];
+
+    if (!raceKey || !genderSuffix) {
+        return [];
+    }
+
+    const base = raceImageBaseMap[raceKey];
+    const candidates = [
+        `${base}${genderSuffix}.jpeg`,
+        `${base}${genderSuffix}.jpg`,
+        `${base}${genderSuffix}.png`,
+        `${base}.jpeg`,
+        `${base}.jpg`,
+        `${base}.png`,
+    ];
+
+    return candidates.flatMap((path) => [
+        `/storage/${path}`,
+        route('media.public', { path }),
+    ]);
+});
+
+const racePreviewIndex = ref(0);
+
+watch(
+    racePreviewSources,
+    () => {
+        racePreviewIndex.value = 0;
+        usePreviewFallback.value = false;
+    },
+    { immediate: true },
+);
+
+const currentRacePreviewSrc = computed(() => {
+    return racePreviewSources.value[racePreviewIndex.value] ?? null;
+});
+
+const displayCharacterImage = computed(() => {
+    if (!usePreviewFallback.value && props.character?.image_url) {
+        return props.character.image_url;
+    }
+
+    return currentRacePreviewSrc.value || null;
+});
+
+const handleCharacterImageError = () => {
+    if (!usePreviewFallback.value && props.character?.image_url) {
+        usePreviewFallback.value = true;
+        racePreviewIndex.value = 0;
+        return;
+    }
+
+    if (racePreviewIndex.value < racePreviewSources.value.length - 1) {
+        racePreviewIndex.value += 1;
+        return;
+    }
+
+    racePreviewIndex.value = racePreviewSources.value.length;
+};
 
 const upsertRequest = (payload) => {
     const idx = requestState.value.findIndex((item) => Number(item.id) === Number(payload.id));
@@ -123,9 +208,46 @@ onBeforeUnmount(() => {
             <h2 class="h4 m-0">{{ party.name }} - Dein Charakter</h2>
         </template>
 
-        <div class="row g-4">
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-body p-3 p-md-4">
+                <ul class="nav nav-tabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button
+                            type="button"
+                            class="nav-link"
+                            :class="{ active: activeTab === 'character' }"
+                            @click="activeTab = 'character'"
+                        >
+                            Charakter
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button
+                            type="button"
+                            class="nav-link"
+                            :class="{ active: activeTab === 'inventory' }"
+                            @click="activeTab = 'inventory'"
+                        >
+                            Inventar
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button
+                            type="button"
+                            class="nav-link"
+                            :class="{ active: activeTab === 'notes' }"
+                            @click="activeTab = 'notes'"
+                        >
+                            Notizen
+                        </button>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <div v-if="activeTab === 'character'" class="row g-4">
             <div class="col-12 col-xl-8">
-                <div class="card shadow-sm border-0 mb-4">
+                <div class="card shadow-sm border-0">
                     <div class="card-body p-4 p-md-5">
                         <div class="text-uppercase small text-muted mb-2" style="letter-spacing: 2px;">Charakterbogen</div>
                         <h3 class="h4 mb-3">{{ character.name }}</h3>
@@ -160,27 +282,42 @@ onBeforeUnmount(() => {
                         </div>
                     </div>
                 </div>
+            </div>
+
+            <div class="col-12 col-xl-4">
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-body p-3">
+                        <img
+                            v-if="displayCharacterImage"
+                            :src="displayCharacterImage"
+                            :alt="`Charakterbild von ${character.name}`"
+                            class="img-fluid rounded border"
+                            @error="handleCharacterImageError"
+                        >
+                        <div v-else class="text-muted small">Kein Charakterbild verfügbar.</div>
+                    </div>
+                </div>
 
                 <div class="card shadow-sm border-0">
                     <div class="card-body p-4">
                         <div class="text-uppercase small text-muted mb-2" style="letter-spacing: 2px;">Anforderungen</div>
-                        <div v-if="myRequests.length === 0" class="text-muted small">Keine Talentanforderungen vom Spielleiter.</div>
+                        <div v-if="!latestMyRequest" class="text-muted small">Keine Talentanforderungen vom Spielleiter.</div>
                         <div v-else class="d-flex flex-column gap-2">
-                            <div v-for="request in myRequests" :key="request.id" class="border rounded p-3 bg-light-subtle">
+                            <div class="border rounded p-3 bg-light-subtle">
                                 <div class="small mb-2">
-                                    <strong>{{ request.ownerUserName }}</strong> fordert:
-                                    {{ request.talents.map((t) => t.label).join(', ') }}
-                                    <span class="text-muted"> · {{ modifierLabel(request) }}</span>
+                                    <strong>{{ latestMyRequest.ownerUserName }}</strong> fordert:
+                                    {{ latestMyRequest.talents.map((t) => t.label).join(', ') }}
+                                    <span class="text-muted"> · {{ modifierLabel(latestMyRequest) }}</span>
                                 </div>
                                 <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <span class="badge" :class="request.status === 'confirmed' ? 'text-bg-success' : 'text-bg-warning'">
-                                        {{ request.status === 'confirmed' ? 'Abgeschlossen' : 'Offen' }}
+                                    <span class="badge" :class="latestMyRequest.status === 'confirmed' ? 'text-bg-success' : 'text-bg-warning'">
+                                        {{ latestMyRequest.status === 'confirmed' ? 'Abgeschlossen' : 'Offen' }}
                                     </span>
                                 </div>
                                 <div class="d-flex flex-column gap-2">
                                     <div
-                                        v-for="talent in request.talents"
-                                        :key="`${request.id}:${talent.key}`"
+                                        v-for="talent in latestMyRequest.talents"
+                                        :key="`${latestMyRequest.id}:${talent.key}`"
                                         class="d-flex justify-content-between align-items-center gap-2 border rounded px-2 py-2 bg-white"
                                     >
                                         <div class="small">
@@ -196,8 +333,8 @@ onBeforeUnmount(() => {
                                             <button
                                                 type="button"
                                                 class="btn btn-sm btn-primary"
-                                                :disabled="isRolled(talent) || rollingKeys[`${request.id}:${talent.key}`]"
-                                                @click="rollTalent(request, talent)"
+                                                :disabled="isRolled(talent) || rollingKeys[`${latestMyRequest.id}:${talent.key}`]"
+                                                @click="rollTalent(latestMyRequest, talent)"
                                             >
                                                 W20 würfeln
                                             </button>
@@ -209,14 +346,21 @@ onBeforeUnmount(() => {
                     </div>
                 </div>
             </div>
+        </div>
 
-            <div class="col-12 col-xl-4">
-                <div class="card shadow-sm border-0">
-                    <div class="card-body p-3">
-                        <img v-if="character.image_url" :src="character.image_url" :alt="`Charakterbild von ${character.name}`" class="img-fluid rounded border">
-                        <div v-else class="text-muted small">Kein Charakterbild verfügbar.</div>
-                    </div>
-                </div>
+        <div v-else-if="activeTab === 'inventory'" class="card shadow-sm border-0">
+            <div class="card-body p-4 p-md-5">
+                <div class="text-uppercase small text-muted mb-2" style="letter-spacing: 2px;">Inventar</div>
+                <h3 class="h5 mb-2">Inventar wird vorbereitet</h3>
+                <p class="text-muted mb-0">Hier kannst du später deine Gegenstände, Ausrüstung und Notizen verwalten.</p>
+            </div>
+        </div>
+
+        <div v-else class="card shadow-sm border-0">
+            <div class="card-body p-4 p-md-5">
+                <div class="text-uppercase small text-muted mb-2" style="letter-spacing: 2px;">Notizen</div>
+                <h3 class="h5 mb-2">Notizen werden vorbereitet</h3>
+                <p class="text-muted mb-0">Hier kannst du später Sitzungsnotizen, Namen und wichtige Hinweise sammeln.</p>
             </div>
         </div>
     </AuthenticatedLayout>

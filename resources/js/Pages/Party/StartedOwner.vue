@@ -16,9 +16,27 @@ const ownerName = computed(() => page.props.auth?.user?.name ?? 'Spielleiter');
 
 const playerCharacters = computed(() => props.characters ?? []);
 const activeCharacterId = ref(playerCharacters.value[0]?.id ?? null);
+const activeDetailTab = ref('character');
 const selectedTalentsByUser = ref({});
 const modifierByUser = ref({});
 const requestState = ref([...props.talentRequests]);
+const usePreviewFallback = ref(false);
+const racePreviewIndex = ref(0);
+
+const raceImageBaseMap = {
+    Menschen: 'Mensch',
+    Elfen: 'Elf',
+    Zwerge: 'Zwerg',
+    Orks: 'Ork',
+    Faelun: 'Faelun',
+    Noctyr: 'Noctyr',
+    Tharokh: 'Tharokh',
+};
+
+const genderImageSuffixMap = {
+    Männlich: 'Man',
+    Weiblich: 'Woman',
+};
 
 watch(() => props.talentRequests, (next) => {
     requestState.value = [...(next ?? [])];
@@ -40,11 +58,11 @@ const talentGroups = computed(() => {
     return Array.from(groups.entries()).map(([category, items]) => ({ category, items }));
 });
 
-const activeRequests = computed(() => {
-    if (!activeCharacter.value) return [];
+const latestActiveRequest = computed(() => {
+    if (!activeCharacter.value) return null;
     return requestState.value
         .filter((request) => Number(request.targetUserId) === Number(activeCharacter.value.user_id))
-        .sort((a, b) => Number(b.id) - Number(a.id));
+        .sort((a, b) => Number(b.id) - Number(a.id))[0] ?? null;
 });
 
 const isTalentSelected = (userId, talentKey) => {
@@ -147,6 +165,70 @@ const modifierLabel = (request) => {
     return `Erschwert -${request.modifierPoints}`;
 };
 
+const racePreviewSources = computed(() => {
+    if (!activeCharacter.value?.race || !activeCharacter.value?.gender) {
+        return [];
+    }
+
+    const raceKey = Object.keys(raceImageBaseMap).find((key) => activeCharacter.value.race.startsWith(key));
+    const genderSuffix = genderImageSuffixMap[activeCharacter.value.gender];
+
+    if (!raceKey || !genderSuffix) {
+        return [];
+    }
+
+    const base = raceImageBaseMap[raceKey];
+    const candidates = [
+        `${base}${genderSuffix}.jpeg`,
+        `${base}${genderSuffix}.jpg`,
+        `${base}${genderSuffix}.png`,
+        `${base}.jpeg`,
+        `${base}.jpg`,
+        `${base}.png`,
+    ];
+
+    return candidates.flatMap((path) => [
+        `/storage/${path}`,
+        route('media.public', { path }),
+    ]);
+});
+
+watch(
+    () => activeCharacter.value?.id,
+    () => {
+        activeDetailTab.value = 'character';
+        racePreviewIndex.value = 0;
+        usePreviewFallback.value = false;
+    },
+    { immediate: true },
+);
+
+const currentRacePreviewSrc = computed(() => {
+    return racePreviewSources.value[racePreviewIndex.value] ?? null;
+});
+
+const displayCharacterImage = computed(() => {
+    if (!usePreviewFallback.value && activeCharacter.value?.image_url) {
+        return activeCharacter.value.image_url;
+    }
+    return currentRacePreviewSrc.value || null;
+});
+
+const handleCharacterImageError = () => {
+    if (!usePreviewFallback.value && activeCharacter.value?.image_url) {
+        usePreviewFallback.value = true;
+        racePreviewIndex.value = 0;
+        return;
+    }
+
+    if (racePreviewIndex.value < racePreviewSources.value.length - 1) {
+        racePreviewIndex.value += 1;
+        return;
+    }
+
+    racePreviewIndex.value = racePreviewSources.value.length;
+};
+
 const talentResultClass = (talent) => {
     if (!talent?.rolledAt) return 'text-bg-warning';
     return talent.isSuccess ? 'text-bg-success' : 'text-bg-danger';
@@ -200,96 +282,153 @@ onBeforeUnmount(() => {
                     </li>
                 </ul>
 
-                <div v-if="activeCharacter" class="row g-4">
-                    <div class="col-12 col-xl-8">
-                        <h4 class="h5 mb-1">{{ activeCharacter.name }}</h4>
-                        <div class="text-muted mb-2">{{ activeCharacter.race }} · {{ activeCharacter.class_name }} · {{ activeCharacter.gender }}</div>
-                        <div class="text-muted mb-3">{{ activeCharacter.age }} Jahre · {{ activeCharacter.height_cm }} cm · {{ activeCharacter.weight_kg }} kg</div>
+                <div v-if="activeCharacter">
+                    <ul class="nav nav-tabs mb-3" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button
+                                type="button"
+                                class="nav-link"
+                                :class="{ active: activeDetailTab === 'character' }"
+                                @click="activeDetailTab = 'character'"
+                            >
+                                Charakter
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button
+                                type="button"
+                                class="nav-link"
+                                :class="{ active: activeDetailTab === 'inventory' }"
+                                @click="activeDetailTab = 'inventory'"
+                            >
+                                Inventar
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button
+                                type="button"
+                                class="nav-link"
+                                :class="{ active: activeDetailTab === 'notes' }"
+                                @click="activeDetailTab = 'notes'"
+                            >
+                                Notizen
+                            </button>
+                        </li>
+                    </ul>
 
-                        <div>
-                            <div class="small text-uppercase text-muted mb-2" style="letter-spacing: 1px;">Talente anfordern</div>
-                            <div class="row g-3">
-                                <div v-for="group in talentGroups" :key="group.category" class="col-12 col-lg-6">
-                                    <div class="border rounded p-3 bg-light-subtle h-100">
-                                        <div class="fw-semibold small mb-2">{{ group.category }}</div>
-                                        <div
-                                            v-for="talent in group.items"
-                                            :key="talent.key"
-                                            class="d-flex justify-content-between align-items-center border rounded px-3 py-2 bg-white mb-2"
-                                        >
-                                            <label class="d-flex align-items-center gap-2 m-0">
-                                                <input
-                                                    type="checkbox"
-                                                    :checked="isTalentSelected(activeCharacter.user_id, talent.key)"
-                                                    @change="toggleTalentSelection(activeCharacter.user_id, talent.key)"
-                                                >
-                                                <span>{{ talent.label }}</span>
-                                            </label>
-                                            <strong>{{ getTalentValue(talent.key) }}</strong>
-                                        </div>
-                                    </div>
+                    <div v-if="activeDetailTab === 'character'" class="row g-4">
+                        <div class="col-12 col-xl-8">
+                            <h4 class="h5 mb-1">{{ activeCharacter.name }}</h4>
+                            <div class="text-muted mb-2">{{ activeCharacter.race }} · {{ activeCharacter.class_name }} · {{ activeCharacter.gender }}</div>
+                            <div class="text-muted mb-3">{{ activeCharacter.age }} Jahre · {{ activeCharacter.height_cm }} cm · {{ activeCharacter.weight_kg }} kg</div>
+
+                            <div class="mb-4">
+                                <div class="small text-uppercase text-muted mb-2" style="letter-spacing: 1px;">Traits</div>
+                                <div class="d-flex flex-wrap gap-2">
+                                    <span v-for="trait in activeCharacter.traits" :key="trait" class="badge text-bg-light border">{{ trait }}</span>
                                 </div>
                             </div>
 
-                            <div class="mt-3 d-flex gap-2 align-items-center flex-wrap">
-                                <select
-                                    class="form-select form-select-sm"
-                                    style="max-width: 170px;"
-                                    :value="ensureModifierState(activeCharacter.user_id).type"
-                                    @change="ensureModifierState(activeCharacter.user_id).type = $event.target.value"
-                                >
-                                    <option value="none">Normal</option>
-                                    <option value="easy">Erleichtert</option>
-                                    <option value="hard">Erschwert</option>
-                                </select>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    max="5"
-                                    class="form-control form-control-sm"
-                                    style="max-width: 90px;"
-                                    :disabled="ensureModifierState(activeCharacter.user_id).type === 'none'"
-                                    :value="ensureModifierState(activeCharacter.user_id).points"
-                                    @input="ensureModifierState(activeCharacter.user_id).points = Math.min(5, Math.max(0, Number($event.target.value || 0)))"
-                                >
-                                <button type="button" class="btn btn-primary" @click="sendTalentRequest">
-                                    Talentanforderung senden
-                                </button>
-                                <span class="small text-muted">
-                                    Ausgewählt: {{ (selectedTalentsByUser[activeCharacter.user_id] ?? []).length }}
-                                </span>
+                            <div>
+                                <div class="small text-uppercase text-muted mb-2" style="letter-spacing: 1px;">Talente anfordern</div>
+                                <div class="row g-3">
+                                    <div v-for="group in talentGroups" :key="group.category" class="col-12 col-lg-6">
+                                        <div class="border rounded p-3 bg-light-subtle h-100">
+                                            <div class="fw-semibold small mb-2">{{ group.category }}</div>
+                                            <div
+                                                v-for="talent in group.items"
+                                                :key="talent.key"
+                                                class="d-flex justify-content-between align-items-center border rounded px-3 py-2 bg-white mb-2"
+                                            >
+                                                <label class="d-flex align-items-center gap-2 m-0">
+                                                    <input
+                                                        type="checkbox"
+                                                        :checked="isTalentSelected(activeCharacter.user_id, talent.key)"
+                                                        @change="toggleTalentSelection(activeCharacter.user_id, talent.key)"
+                                                    >
+                                                    <span>{{ talent.label }}</span>
+                                                </label>
+                                                <strong>{{ getTalentValue(talent.key) }}</strong>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="mt-3 d-flex gap-2 align-items-center flex-wrap">
+                                    <select
+                                        class="form-select form-select-sm"
+                                        style="max-width: 170px;"
+                                        :value="ensureModifierState(activeCharacter.user_id).type"
+                                        @change="ensureModifierState(activeCharacter.user_id).type = $event.target.value"
+                                    >
+                                        <option value="none">Normal</option>
+                                        <option value="easy">Erleichtert</option>
+                                        <option value="hard">Erschwert</option>
+                                    </select>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        max="5"
+                                        class="form-control form-control-sm"
+                                        style="max-width: 90px;"
+                                        :disabled="ensureModifierState(activeCharacter.user_id).type === 'none'"
+                                        :value="ensureModifierState(activeCharacter.user_id).points"
+                                        @input="ensureModifierState(activeCharacter.user_id).points = Math.min(5, Math.max(0, Number($event.target.value || 0)))"
+                                    >
+                                    <button type="button" class="btn btn-primary" @click="sendTalentRequest">
+                                        Talentanforderung senden
+                                    </button>
+                                    <span class="small text-muted">
+                                        Ausgewählt: {{ (selectedTalentsByUser[activeCharacter.user_id] ?? []).length }}
+                                    </span>
+                                </div>
                             </div>
                         </div>
 
-                        <div class="mt-4">
-                            <div class="small text-uppercase text-muted mb-2" style="letter-spacing: 1px;">Anfragen für {{ activeCharacter.user.name }}</div>
-                            <div v-if="activeRequests.length === 0" class="text-muted small">Keine Anfragen vorhanden.</div>
-                            <div v-else class="d-flex flex-column gap-2">
-                                <div v-for="request in activeRequests" :key="request.id" class="border rounded p-2 bg-light-subtle">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <div class="small">
-                                            {{ request.talents.map((t) => t.label).join(', ') }}
-                                            <span class="text-muted"> · {{ modifierLabel(request) }}</span>
-                                        </div>
-                                        <span class="badge" :class="request.status === 'confirmed' ? 'text-bg-success' : 'text-bg-warning'">
-                                            {{ request.status === 'confirmed' ? 'Abgeschlossen' : 'Offen' }}
-                                        </span>
-                                    </div>
-                                    <div class="small mt-2 d-flex flex-column gap-1">
-                                        <div
-                                            v-for="talent in request.talents"
-                                            :key="`${request.id}:${talent.key}`"
-                                            class="d-flex justify-content-between align-items-center border rounded px-2 py-1 bg-white"
-                                        >
-                                            <span>{{ talent.label }}</span>
-                                            <span class="d-flex align-items-center gap-2">
-                                                <span v-if="talent.rolledAt" class="text-muted">
-                                                    {{ talent.rolledValue }} / {{ talent.targetValue }}
-                                                </span>
-                                                <span class="badge" :class="talentResultClass(talent)">
-                                                    {{ talentResultText(talent) }}
-                                                </span>
+                        <div class="col-12 col-xl-4">
+                            <div class="card shadow-sm border-0 mb-4">
+                                <div class="card-body p-3">
+                                    <img
+                                        v-if="displayCharacterImage"
+                                        :src="displayCharacterImage"
+                                        :alt="`Charakterbild von ${activeCharacter.name}`"
+                                        class="img-fluid rounded border"
+                                        @error="handleCharacterImageError"
+                                    >
+                                    <div v-else class="text-muted small">Kein Charakterbild verfügbar.</div>
+                                </div>
+                            </div>
+
+                            <div class="card shadow-sm border-0">
+                                <div class="card-body p-3">
+                                    <div class="small text-uppercase text-muted mb-2" style="letter-spacing: 1px;">Anfragen für {{ activeCharacter.user.name }}</div>
+                                    <div v-if="!latestActiveRequest" class="text-muted small">Keine Anfragen vorhanden.</div>
+                                    <div v-else class="border rounded p-2 bg-light-subtle">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div class="small">
+                                                {{ latestActiveRequest.talents.map((t) => t.label).join(', ') }}
+                                                <span class="text-muted"> · {{ modifierLabel(latestActiveRequest) }}</span>
+                                            </div>
+                                            <span class="badge" :class="latestActiveRequest.status === 'confirmed' ? 'text-bg-success' : 'text-bg-warning'">
+                                                {{ latestActiveRequest.status === 'confirmed' ? 'Abgeschlossen' : 'Offen' }}
                                             </span>
+                                        </div>
+                                        <div class="small mt-2 d-flex flex-column gap-1">
+                                            <div
+                                                v-for="talent in latestActiveRequest.talents"
+                                                :key="`${latestActiveRequest.id}:${talent.key}`"
+                                                class="d-flex justify-content-between align-items-center border rounded px-2 py-1 bg-white"
+                                            >
+                                                <span>{{ talent.label }}</span>
+                                                <span class="d-flex align-items-center gap-2">
+                                                    <span v-if="talent.rolledAt" class="text-muted">
+                                                        {{ talent.rolledValue }} / {{ talent.targetValue }}
+                                                    </span>
+                                                    <span class="badge" :class="talentResultClass(talent)">
+                                                        {{ talentResultText(talent) }}
+                                                    </span>
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -297,14 +436,20 @@ onBeforeUnmount(() => {
                         </div>
                     </div>
 
-                    <div class="col-12 col-xl-4">
-                        <img
-                            v-if="activeCharacter.image_url"
-                            :src="activeCharacter.image_url"
-                            :alt="`Charakterbild von ${activeCharacter.name}`"
-                            class="img-fluid rounded border"
-                        >
-                        <div v-else class="text-muted small">Kein Charakterbild verfügbar.</div>
+                    <div v-else-if="activeDetailTab === 'inventory'" class="card shadow-sm border-0">
+                        <div class="card-body p-4 p-md-5">
+                            <div class="text-uppercase small text-muted mb-2" style="letter-spacing: 2px;">Inventar</div>
+                            <h3 class="h5 mb-2">Inventar wird vorbereitet</h3>
+                            <p class="text-muted mb-0">Hier siehst du später das Inventar des ausgewählten Spielers.</p>
+                        </div>
+                    </div>
+
+                    <div v-else class="card shadow-sm border-0">
+                        <div class="card-body p-4 p-md-5">
+                            <div class="text-uppercase small text-muted mb-2" style="letter-spacing: 2px;">Notizen</div>
+                            <h3 class="h5 mb-2">Notizen werden vorbereitet</h3>
+                            <p class="text-muted mb-0">Hier kannst du später Spielleiter-Notizen zum ausgewählten Spieler verwalten.</p>
+                        </div>
                     </div>
                 </div>
             </div>
