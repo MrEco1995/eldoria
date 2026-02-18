@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Events\PartyStarted;
 use App\Models\Party;
 use App\Models\PartyInvite;
+use App\Models\PartyTalentRequest;
 use App\Models\Race;
 use App\Models\Talent;
 use Illuminate\Http\RedirectResponse;
@@ -279,6 +280,36 @@ class PartyController extends Controller
             })
             ->values();
 
+        $talentRequests = PartyTalentRequest::query()
+            ->where('party_id', $party->id)
+            ->when($party->owner_id !== $userId, fn ($query) => $query->where('target_user_id', $userId))
+            ->orderByDesc('id')
+            ->limit(100)
+            ->get()
+            ->map(function ($request) use ($party) {
+                $owner = $party->members()->whereKey($request->owner_user_id)->first();
+                $target = $party->members()->whereKey($request->target_user_id)->first();
+                return [
+                    'id' => $request->id,
+                    'partyId' => $request->party_id,
+                    'ownerUserId' => $request->owner_user_id,
+                    'ownerUserName' => $owner?->name ?? 'Spielleiter',
+                    'targetUserId' => $request->target_user_id,
+                    'targetUserName' => $target?->name ?? 'Spieler',
+                    'talents' => $request->talents ?? [],
+                    'modifierType' => $request->modifier_type,
+                    'modifierPoints' => (int) $request->modifier_points,
+                    'status' => $request->status,
+                    'rolledTalentKey' => $request->rolled_talent_key,
+                    'rolledValue' => $request->rolled_value,
+                    'targetValue' => $request->target_value,
+                    'isSuccess' => $request->is_success,
+                    'createdAt' => optional($request->created_at)?->toIso8601String(),
+                    'confirmedAt' => optional($request->confirmed_at)?->toIso8601String(),
+                ];
+            })
+            ->values();
+
         $payload = [
             'party' => [
                 'id' => $party->id,
@@ -300,6 +331,7 @@ class PartyController extends Controller
                     'category' => $talent->category,
                 ])
                 ->values(),
+            'talentRequests' => $talentRequests,
         ];
 
         if ($party->owner_id === $userId) {

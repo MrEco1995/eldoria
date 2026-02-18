@@ -6,6 +6,7 @@ use App\Http\Controllers\PartyInviteController;
 use App\Http\Controllers\PartyMemberController;
 use App\Http\Controllers\PartyCharacterController;
 use App\Http\Controllers\PartyRollController;
+use App\Http\Controllers\PartyTalentRequestController;
 use App\Http\Controllers\PublicMediaController;
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
@@ -73,6 +74,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('parties.characters.store');
     Route::post('/parties/{party}/rolls', [PartyRollController::class, 'store'])
         ->name('parties.rolls.store');
+    Route::post('/parties/{party}/talent-requests', [PartyTalentRequestController::class, 'store'])
+        ->name('parties.talent-requests.store');
+    Route::post('/parties/{party}/talent-requests/{talentRequest}/confirm', [PartyTalentRequestController::class, 'confirm'])
+        ->name('parties.talent-requests.confirm');
     Route::post('/parties/{party}/invites', [PartyInviteController::class, 'regenerate'])
         ->name('parties.invites.regenerate');
     Route::get('/invites/{token}', [PartyInviteController::class, 'join'])
