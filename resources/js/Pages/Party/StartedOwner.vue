@@ -147,9 +147,13 @@ const modifierLabel = (request) => {
     return `Erschwert -${request.modifierPoints}`;
 };
 
-const rolledTalentLabel = (request) => {
-    const match = (request?.talents ?? []).find((item) => item.key === request.rolledTalentKey);
-    return match?.label ?? request?.rolledTalentKey ?? '-';
+const talentResultClass = (talent) => {
+    if (!talent?.rolledAt) return 'text-bg-warning';
+    return talent.isSuccess ? 'text-bg-success' : 'text-bg-danger';
+};
+const talentResultText = (talent) => {
+    if (!talent?.rolledAt) return 'Offen';
+    return talent.isSuccess ? 'Erfolg' : 'Fehlschlag';
 };
 
 onMounted(() => {
@@ -267,12 +271,26 @@ onBeforeUnmount(() => {
                                             {{ request.talents.map((t) => t.label).join(', ') }}
                                             <span class="text-muted"> · {{ modifierLabel(request) }}</span>
                                         </div>
-                                        <span class="badge" :class="request.status === 'confirmed' ? (request.isSuccess ? 'text-bg-success' : 'text-bg-danger') : 'text-bg-warning'">
-                                            {{ request.status === 'confirmed' ? (request.isSuccess ? 'Erfolg' : 'Fehlschlag') : 'Offen' }}
+                                        <span class="badge" :class="request.status === 'confirmed' ? 'text-bg-success' : 'text-bg-warning'">
+                                            {{ request.status === 'confirmed' ? 'Abgeschlossen' : 'Offen' }}
                                         </span>
                                     </div>
-                                    <div v-if="request.status === 'confirmed'" class="small mt-1">
-                                        Gewürfelt: {{ request.rolledValue }} auf {{ rolledTalentLabel(request) }} (Zielwert: {{ request.targetValue }})
+                                    <div class="small mt-2 d-flex flex-column gap-1">
+                                        <div
+                                            v-for="talent in request.talents"
+                                            :key="`${request.id}:${talent.key}`"
+                                            class="d-flex justify-content-between align-items-center border rounded px-2 py-1 bg-white"
+                                        >
+                                            <span>{{ talent.label }}</span>
+                                            <span class="d-flex align-items-center gap-2">
+                                                <span v-if="talent.rolledAt" class="text-muted">
+                                                    {{ talent.rolledValue }} / {{ talent.targetValue }}
+                                                </span>
+                                                <span class="badge" :class="talentResultClass(talent)">
+                                                    {{ talentResultText(talent) }}
+                                                </span>
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

@@ -12,7 +12,7 @@ const props = defineProps({
 });
 
 const requestState = ref([...(props.talentRequests ?? [])]);
-const requestInputs = ref({});
+const rollingKeys = ref({});
 
 watch(() => props.talentRequests, (next) => {
     requestState.value = [...(next ?? [])];
@@ -56,16 +56,6 @@ const onRequestConfirmed = (event) => {
     upsertRequest(event.request);
 };
 
-const ensureRequestInput = (request) => {
-    if (!requestInputs.value[request.id]) {
-        requestInputs.value[request.id] = {
-            rolledTalentKey: request.talents?.[0]?.key ?? '',
-            rolledValue: '',
-        };
-    }
-    return requestInputs.value[request.id];
-};
-
 const modifierLabel = (request) => {
     if (!request || request.modifierType === 'none' || !request.modifierPoints) return 'Normal';
     return request.modifierType === 'easy'
@@ -73,28 +63,41 @@ const modifierLabel = (request) => {
         : `Erschwert -${request.modifierPoints}`;
 };
 
-const rollForRequest = (request) => {
-    const input = ensureRequestInput(request);
-    input.rolledValue = Math.floor(Math.random() * 20) + 1;
+const isRolled = (talent) => talent?.rolledAt != null;
+const resultClass = (talent) => {
+    if (!isRolled(talent)) return 'text-bg-warning';
+    return talent.isSuccess ? 'text-bg-success' : 'text-bg-danger';
+};
+const resultText = (talent) => {
+    if (!isRolled(talent)) return 'Offen';
+    return talent.isSuccess ? 'Erfolg' : 'Fehlschlag';
 };
 
-const confirmRequest = async (request) => {
-    const input = ensureRequestInput(request);
-    if (!input.rolledTalentKey || !input.rolledValue) return;
+const makeRollKey = (requestId, talentKey) => `${requestId}:${talentKey}`;
+
+const rollTalent = async (request, talent) => {
+    if (!talent?.key || isRolled(talent)) return;
+    const rollKey = makeRollKey(request.id, talent.key);
+    if (rollingKeys.value[rollKey]) return;
+
+    rollingKeys.value[rollKey] = true;
+    const rolledValue = Math.floor(Math.random() * 20) + 1;
 
     try {
         const response = await window.axios.post(route('parties.talent-requests.confirm', {
             party: props.party.id,
             talentRequest: request.id,
         }), {
-            rolled_talent_key: input.rolledTalentKey,
-            rolled_value: Number(input.rolledValue),
+            rolled_talent_key: talent.key,
+            rolled_value: rolledValue,
         });
         if (response?.data?.request) {
             upsertRequest(response.data.request);
         }
     } catch {
         // ignore; flash handles errors
+    } finally {
+        rollingKeys.value[rollKey] = false;
     }
 };
 
@@ -170,39 +173,36 @@ onBeforeUnmount(() => {
                                     <span class="text-muted"> · {{ modifierLabel(request) }}</span>
                                 </div>
                                 <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <span class="badge" :class="request.status === 'confirmed' ? (request.isSuccess ? 'text-bg-success' : 'text-bg-danger') : 'text-bg-warning'">
-                                        {{ request.status === 'confirmed' ? (request.isSuccess ? 'Erfolg' : 'Fehlschlag') : 'Offen' }}
-                                    </span>
-                                    <span v-if="request.status === 'confirmed'" class="small">
-                                        {{ request.rolledValue }} auf {{ request.rolledTalentKey }} (Zielwert: {{ request.targetValue }})
+                                    <span class="badge" :class="request.status === 'confirmed' ? 'text-bg-success' : 'text-bg-warning'">
+                                        {{ request.status === 'confirmed' ? 'Abgeschlossen' : 'Offen' }}
                                     </span>
                                 </div>
-                                <div v-if="request.status !== 'confirmed'" class="d-flex gap-2 align-items-center flex-wrap">
-                                    <select
-                                        class="form-select form-select-sm"
-                                        style="max-width: 220px;"
-                                        :value="ensureRequestInput(request).rolledTalentKey"
-                                        @change="ensureRequestInput(request).rolledTalentKey = $event.target.value"
+                                <div class="d-flex flex-column gap-2">
+                                    <div
+                                        v-for="talent in request.talents"
+                                        :key="`${request.id}:${talent.key}`"
+                                        class="d-flex justify-content-between align-items-center gap-2 border rounded px-2 py-2 bg-white"
                                     >
-                                        <option v-for="talent in request.talents" :key="talent.key" :value="talent.key">
-                                            {{ talent.label }}
-                                        </option>
-                                    </select>
-                                    <input
-                                        type="number"
-                                        min="1"
-                                        max="20"
-                                        class="form-control form-control-sm"
-                                        style="max-width: 90px;"
-                                        :value="ensureRequestInput(request).rolledValue"
-                                        @input="ensureRequestInput(request).rolledValue = Number($event.target.value || '')"
-                                    >
-                                    <button type="button" class="btn btn-sm btn-outline-secondary" @click="rollForRequest(request)">
-                                        W20 würfeln
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-primary" @click="confirmRequest(request)">
-                                        Wurf abschicken
-                                    </button>
+                                        <div class="small">
+                                            <div class="fw-semibold">{{ talent.label }}</div>
+                                            <div v-if="isRolled(talent)" class="text-muted">
+                                                Wurf: {{ talent.rolledValue }} · Zielwert: {{ talent.targetValue }}
+                                            </div>
+                                        </div>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="badge" :class="resultClass(talent)">
+                                                {{ resultText(talent) }}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                class="btn btn-sm btn-primary"
+                                                :disabled="isRolled(talent) || rollingKeys[`${request.id}:${talent.key}`]"
+                                                @click="rollTalent(request, talent)"
+                                            >
+                                                W20 würfeln
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>

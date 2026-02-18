@@ -48,6 +48,10 @@ class PartyTalentRequestController extends Controller
             return [
                 'key' => $key,
                 'label' => $talentKeys[$key] ?? $key,
+                'rolledValue' => null,
+                'targetValue' => null,
+                'isSuccess' => null,
+                'rolledAt' => null,
             ];
         }, $uniqueTalentKeys);
 
@@ -76,14 +80,19 @@ class PartyTalentRequestController extends Controller
         $user = $request->user();
         abort_unless($talentRequest->party_id === $party->id, 404);
         abort_unless((int) $talentRequest->target_user_id === (int) $user->id, 403);
+        abort_if($talentRequest->status === 'confirmed', 409, 'Diese Anfrage ist bereits abgeschlossen.');
 
         $data = $request->validate([
             'rolled_talent_key' => ['required', 'string'],
             'rolled_value' => ['required', 'integer', 'min:1', 'max:20'],
         ]);
 
-        $allowedTalentKeys = collect($talentRequest->talents ?? [])->pluck('key')->all();
-        abort_unless(in_array($data['rolled_talent_key'], $allowedTalentKeys, true), 422);
+        $talents = $this->normalizeTalents($talentRequest->talents ?? []);
+        $talentIndex = collect($talents)->search(
+            fn (array $talent) => ($talent['key'] ?? null) === $data['rolled_talent_key']
+        );
+        abort_unless($talentIndex !== false, 422);
+        abort_if(!empty($talents[$talentIndex]['rolledAt']), 409, 'Dieses Talent wurde bereits gewuerfelt.');
 
         $character = PartyCharacter::query()
             ->where('party_id', $party->id)
@@ -100,13 +109,21 @@ class PartyTalentRequestController extends Controller
         $rolledValue = (int) $data['rolled_value'];
         $isSuccess = $rolledValue < $targetValue;
 
+        $talents[$talentIndex]['rolledValue'] = $rolledValue;
+        $talents[$talentIndex]['targetValue'] = $targetValue;
+        $talents[$talentIndex]['isSuccess'] = $isSuccess;
+        $talents[$talentIndex]['rolledAt'] = now()->toIso8601String();
+
+        $allRolled = collect($talents)->every(fn (array $talent) => !empty($talent['rolledAt']));
+
         $talentRequest->update([
-            'status' => 'confirmed',
+            'talents' => $talents,
+            'status' => $allRolled ? 'confirmed' : 'pending',
             'rolled_talent_key' => $data['rolled_talent_key'],
             'rolled_value' => $rolledValue,
             'target_value' => $targetValue,
             'is_success' => $isSuccess,
-            'confirmed_at' => now(),
+            'confirmed_at' => $allRolled ? now() : null,
         ]);
 
         $ownerName = optional($party->members()->whereKey($talentRequest->owner_user_id)->first())->name ?? 'Spielleiter';
@@ -117,7 +134,7 @@ class PartyTalentRequestController extends Controller
             return response()->json(['ok' => true, 'request' => $payload], 200);
         }
 
-        return back()->with('status', 'Wurf wurde bestätigt.');
+        return back()->with('status', 'Wurf wurde bestaetigt.');
     }
 
     private function toPayload(PartyTalentRequest $request, string $ownerName, string $targetName): array
@@ -129,7 +146,7 @@ class PartyTalentRequestController extends Controller
             'ownerUserName' => $ownerName,
             'targetUserId' => $request->target_user_id,
             'targetUserName' => $targetName,
-            'talents' => $request->talents ?? [],
+            'talents' => $this->normalizeTalents($request->talents ?? []),
             'modifierType' => $request->modifier_type,
             'modifierPoints' => (int) $request->modifier_points,
             'status' => $request->status,
@@ -140,6 +157,20 @@ class PartyTalentRequestController extends Controller
             'createdAt' => optional($request->created_at)?->toIso8601String(),
             'confirmedAt' => optional($request->confirmed_at)?->toIso8601String(),
         ];
+    }
+
+    private function normalizeTalents(array $talents): array
+    {
+        return array_values(array_map(function (array $talent) {
+            return [
+                'key' => $talent['key'] ?? '',
+                'label' => $talent['label'] ?? ($talent['key'] ?? ''),
+                'rolledValue' => $talent['rolledValue'] ?? null,
+                'targetValue' => $talent['targetValue'] ?? null,
+                'isSuccess' => $talent['isSuccess'] ?? null,
+                'rolledAt' => $talent['rolledAt'] ?? null,
+            ];
+        }, $talents));
     }
 
     private function broadcastCreated(int $partyId, array $payload): void
