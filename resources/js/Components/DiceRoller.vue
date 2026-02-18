@@ -14,6 +14,7 @@ const isRolling = ref(false);
 const activeDie = ref(null);
 const rollError = ref('');
 const partyChannel = ref(null);
+const isMinimized = ref(false);
 
 const toTime = (iso = null) => {
     const date = iso ? new Date(iso) : new Date();
@@ -110,12 +111,35 @@ onBeforeUnmount(() => {
         class="position-fixed bottom-0 end-0 p-3"
         style="z-index: 1080; width: min(360px, calc(100vw - 1.5rem));"
     >
-        <div class="card shadow-sm border-0">
+        <div v-if="isMinimized" class="d-flex justify-content-end">
+            <button
+                type="button"
+                class="btn btn-dark btn-sm shadow"
+                @click="isMinimized = false"
+                aria-label="Würfeln anzeigen"
+                title="Würfeln anzeigen"
+            >
+                Wuerfeln
+            </button>
+        </div>
+
+        <div v-else class="card shadow-sm border-0">
             <div class="card-body p-3">
-                <div class="text-uppercase small text-muted mb-2" style="letter-spacing: 2px;">
-                    Würfeln
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div class="text-uppercase small text-muted" style="letter-spacing: 2px;">
+                        Wuerfeln
+                    </div>
+                    <button
+                        type="button"
+                        class="btn btn-outline-secondary btn-sm"
+                        @click="isMinimized = true"
+                        aria-label="Würfeln minimieren"
+                        title="Würfeln minimieren"
+                    >
+                        -
+                    </button>
                 </div>
-                <h5 class="card-title mb-3">Schneller Würfelwurf</h5>
+                <h5 class="card-title mb-3">Schneller Wuerfelwurf</h5>
 
                 <div class="d-flex gap-2 flex-wrap">
                     <button

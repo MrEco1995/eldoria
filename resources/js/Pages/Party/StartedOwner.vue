@@ -1,4 +1,5 @@
 ﻿<script setup>
+import DiceRoller from '@/Components/DiceRoller.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
@@ -132,4 +133,6 @@ const getTalentValue = (key) => Number(activeCharacter.value?.talents?.[key] ?? 
             </div>
         </div>
     </AuthenticatedLayout>
+
+    <DiceRoller :party-id="party.id" />
 </template>

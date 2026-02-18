@@ -1,5 +1,4 @@
 ﻿<script setup>
-import DiceRoller from '@/Components/DiceRoller.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
@@ -251,7 +250,10 @@ const racePreviewSources = computed(() => {
         `${base}.png`,
     ];
 
-    return candidates.map((path) => route('media.public', { path }));
+    return candidates.flatMap((path) => [
+        `/storage/${path}`,
+        route('media.public', { path }),
+    ]);
 });
 
 const racePreviewIndex = ref(0);
@@ -969,8 +971,6 @@ onBeforeUnmount(() => {
                         </div>
                     </div>
                 </div>
-
-                <DiceRoller :party-id="party.id" />
             </div>
         </div>
     </AuthenticatedLayout>
