@@ -18,6 +18,8 @@ class DatabaseSeeder extends Seeder
         $this->call([
             RaceSeeder::class,
             TalentSeeder::class,
+            StarterWeaponSeeder::class,
+            QuestSeeder::class,
         ]);
 
         // User::factory(10)->create();

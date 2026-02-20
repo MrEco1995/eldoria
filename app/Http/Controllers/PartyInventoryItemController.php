@@ -145,6 +145,10 @@ class PartyInventoryItemController extends Controller
             ->firstOrFail();
         $this->assertCanManageInventory($party, $user->id, $character->user_id);
 
+        $category = mb_strtolower((string) ($inventoryItem->category ?? ''));
+        $allowedCategories = ['verbrauchbar', 'werkzeug'];
+        abort_unless(in_array($category, $allowedCategories, true), 422, 'Dieses Item kann nicht genutzt werden.');
+
         if ((int) $inventoryItem->quantity > 1) {
             $inventoryItem->quantity = (int) $inventoryItem->quantity - 1;
             $inventoryItem->save();

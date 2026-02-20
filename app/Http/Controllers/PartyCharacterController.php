@@ -4,10 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\Party;
 use App\Models\PartyCharacter;
+use App\Models\StarterWeapon;
 use App\Models\Talent;
 use App\Jobs\GenerateCharacterImage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 
@@ -103,11 +105,62 @@ class PartyCharacterController extends Controller
         ]);
 
         if ($character) {
+            $this->createStarterInventory($character);
             GenerateCharacterImage::dispatch($character->id);
         }
 
         return redirect()
             ->route('parties.show', $party)
             ->with('status', 'Charakter erstellt.');
+    }
+
+    private function createStarterInventory(PartyCharacter $character): void
+    {
+        $starterWeapon = $this->resolveStarterWeapon($character->race, $character->class_name);
+
+        $items = [
+            ['name' => $starterWeapon, 'quantity' => 1, 'category' => 'Waffen'],
+            ['name' => 'Ration', 'quantity' => 3, 'category' => 'Verbrauchbar'],
+            ['name' => 'Wasserflasche', 'quantity' => 1, 'category' => 'Verbrauchbar'],
+            ['name' => 'Fackel', 'quantity' => 2, 'category' => 'Verbrauchbar'],
+            ['name' => 'Seil (10m)', 'quantity' => 1, 'category' => 'Werkzeug'],
+            ['name' => 'Feuerstein', 'quantity' => 1, 'category' => 'Werkzeug'],
+            ['name' => 'Reisetagebuch', 'quantity' => 1, 'category' => 'Sonstiges'],
+        ];
+
+        $payload = collect($items)->values()->map(function (array $item, int $index) {
+            return [
+                'name' => $item['name'],
+                'quantity' => $item['quantity'],
+                'category' => $item['category'],
+                'notes' => null,
+                'sort_order' => $index + 1,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+        })->all();
+
+        $character->inventoryItems()->createMany($payload);
+    }
+
+    private function resolveStarterWeapon(string $race, string $className): string
+    {
+        $raceKey = $this->normalizeLookupKey($race);
+        $classKey = $this->normalizeLookupKey($className);
+
+        return StarterWeapon::query()
+            ->where('is_active', true)
+            ->where('race_key', $raceKey)
+            ->where('class_key', $classKey)
+            ->value('weapon_name') ?? 'Reisemesser';
+    }
+
+    private function normalizeLookupKey(string $value): string
+    {
+        return (string) Str::of($value)
+            ->lower()
+            ->ascii()
+            ->replaceMatches('/\s+/', ' ')
+            ->trim();
     }
 }

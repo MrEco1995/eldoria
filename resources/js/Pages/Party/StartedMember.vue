@@ -19,6 +19,7 @@ const inventoryItems = ref([...(props.character?.inventoryItems ?? [])]);
 const noteDraftByItemId = ref({});
 const noteEditorOpenByItemId = ref({});
 const inventoryBusy = ref(false);
+const inventoryActionHint = ref('');
 
 const raceImageBaseMap = {
     Menschen: 'Mensch',
@@ -251,7 +252,9 @@ const saveItemNote = async (item) => {
 };
 
 const useItem = async (item) => {
+    inventoryActionHint.value = '';
     if (inventoryBusy.value) return;
+    if (!isUsableItem(item)) return;
     inventoryBusy.value = true;
     try {
         const response = await window.axios.post(route('parties.inventory-items.use', {
@@ -271,6 +274,17 @@ const useItem = async (item) => {
     } finally {
         inventoryBusy.value = false;
     }
+};
+
+const isUsableItem = (item) => {
+    const category = String(item?.category ?? '').toLowerCase();
+    return ['verbrauchbar', 'werkzeug'].includes(category);
+};
+
+const trySellItem = (item) => {
+    const confirmSell = window.confirm(`"${item.name}" verkaufen?`);
+    if (!confirmSell) return;
+    inventoryActionHint.value = 'Verkaufen ist nur beim Handeln mit jemandem möglich. Das Handelssystem folgt später.';
 };
 
 const rollTalent = async (request, talent) => {
@@ -470,6 +484,9 @@ onBeforeUnmount(() => {
 
                     <div class="bag-area p-3 p-md-4">
                         <div class="bag-mouth mb-3">Jutebeutel</div>
+                        <div v-if="inventoryActionHint" class="alert alert-warning py-2 px-3 small mb-3">
+                            {{ inventoryActionHint }}
+                        </div>
                         <div v-if="inventoryItems.length === 0" class="text-muted small">
                             Dein Beutel ist leer.
                         </div>
@@ -515,8 +532,24 @@ onBeforeUnmount(() => {
                                     </div>
                                     <div class="d-flex align-items-center gap-1">
                                         <span class="px-2 small fw-semibold">{{ item.quantity }}</span>
-                                        <button type="button" class="btn btn-sm btn-outline-success ms-1" :disabled="inventoryBusy" @click="useItem(item)">
+                                        <button
+                                            v-if="isUsableItem(item)"
+                                            type="button"
+                                            class="btn btn-sm btn-outline-success ms-1"
+                                            :disabled="inventoryBusy"
+                                            @click="useItem(item)"
+                                        >
                                             Nutzen
+                                        </button>
+                                        <button
+                                            v-else
+                                            type="button"
+                                            class="btn btn-sm btn-outline-danger ms-1"
+                                            title="Verkaufen"
+                                            aria-label="Verkaufen"
+                                            @click="trySellItem(item)"
+                                        >
+                                            <i class="fa-solid fa-coins"></i>
                                         </button>
                                     </div>
                                 </div>
