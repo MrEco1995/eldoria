@@ -5,9 +5,7 @@ namespace App\Http\Controllers;
 use App\Events\PartyStarted;
 use App\Models\Party;
 use App\Models\PartyInvite;
-use App\Models\PartyTalentRequest;
-use App\Models\Race;
-use App\Models\Talent;
+use App\Services\PartyViewDataService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -16,6 +14,10 @@ use Inertia\Response;
 
 class PartyController extends Controller
 {
+    public function __construct(private readonly PartyViewDataService $partyViewDataService)
+    {
+    }
+
     public function create(): Response|RedirectResponse
     {
         $user = request()->user();
@@ -61,133 +63,7 @@ class PartyController extends Controller
             return redirect()->route('parties.started', $party);
         }
 
-        $invite = PartyInvite::query()
-            ->where('party_id', $party->id)
-            ->where('expires_at', '>', now())
-            ->latest('expires_at')
-            ->first();
-
-        $character = $party->characters()
-            ->where('user_id', $userId)
-            ->with([
-                'mediafiles' => fn ($query) => $query
-                    ->wherePivot('role', 'character')
-                    ->latest('mediafiles.id'),
-            ])
-            ->select('id', 'name', 'race', 'class_name', 'gender', 'age', 'height_cm', 'weight_kg', 'traits', 'talents')
-            ->first();
-
-        $characters = $party->characters()
-            ->with('user:id,name')
-            ->with([
-                'mediafiles' => fn ($query) => $query
-                    ->wherePivot('role', 'character')
-                    ->latest('mediafiles.id'),
-            ])
-            ->select('id', 'party_id', 'user_id', 'name', 'race', 'class_name', 'gender', 'age', 'height_cm', 'weight_kg', 'traits', 'talents')
-            ->get();
-
-        return Inertia::render('Party/Show', [
-            'party' => [
-                'id' => $party->id,
-                'name' => $party->name,
-                'owner' => [
-                    'id' => $party->owner->id,
-                    'name' => $party->owner->name,
-                    'email' => $party->owner->email,
-                ],
-                'startedAt' => $party->started_at?->toIso8601String(),
-            ],
-            'members' => $party->members()
-                ->select('users.id', 'users.name', 'users.email', 'party_user.is_ready')
-                ->get(),
-            'character' => $character ? [
-                'id' => $character->id,
-                'name' => $character->name,
-                'race' => $character->race,
-                'class_name' => $character->class_name,
-                'gender' => $character->gender,
-                'age' => $character->age,
-                'height_cm' => $character->height_cm,
-                'weight_kg' => $character->weight_kg,
-                'traits' => $character->traits,
-                'talents' => $character->talents,
-                'image_url' => ($image = $character->mediafiles->first())
-                    ? route('media.public', ['path' => $image->path])
-                    : null,
-            ] : null,
-            'characters' => $characters->map(function ($entry) {
-                $image = $entry->mediafiles->first();
-
-                return [
-                    'id' => $entry->id,
-                    'party_id' => $entry->party_id,
-                    'user_id' => $entry->user_id,
-                    'name' => $entry->name,
-                    'race' => $entry->race,
-                    'class_name' => $entry->class_name,
-                    'gender' => $entry->gender,
-                    'age' => $entry->age,
-                    'height_cm' => $entry->height_cm,
-                    'weight_kg' => $entry->weight_kg,
-                    'traits' => $entry->traits,
-                    'talents' => $entry->talents,
-                    'user' => [
-                        'id' => $entry->user->id,
-                        'name' => $entry->user->name,
-                    ],
-                    'image_url' => $image ? route('media.public', ['path' => $image->path]) : null,
-                ];
-            })->values(),
-            'invite' => $invite ? [
-                'url' => route('parties.invites.join', $invite->token),
-                'expiresAt' => $invite->expires_at->toIso8601String(),
-            ] : null,
-            'races' => Race::query()
-                ->where('is_active', true)
-                ->orderBy('sort_order')
-                ->orderBy('name')
-                ->get([
-                    'name',
-                    'description',
-                    'essence',
-                    'appearance',
-                    'age_text',
-                    'height_text',
-                    'weight_text',
-                    'good_with',
-                    'bad_with',
-                ])->map(fn ($race) => [
-                    'name' => $race->name,
-                    'description' => $race->description,
-                    'essence' => $race->essence,
-                    'appearance' => $race->appearance,
-                    'age' => $race->age_text,
-                    'height' => $race->height_text,
-                    'weight' => $race->weight_text,
-                    'goodWith' => $race->good_with ?? [],
-                    'badWith' => $race->bad_with ?? [],
-                ])->values(),
-            'talents' => Talent::query()
-                ->where('is_active', true)
-                ->orderBy('sort_order')
-                ->orderBy('label')
-                ->get([
-                    'key',
-                    'label',
-                    'category',
-                    'description',
-                    'max_points',
-                ])->map(fn ($talent) => [
-                    'key' => $talent->key,
-                    'label' => $talent->label,
-                    'category' => $talent->category,
-                    'description' => $talent->description,
-                    'maxPoints' => $talent->max_points,
-                ])->values(),
-            'talentPointPool' => config('game.character_talent_point_pool', 35),
-            'isOwner' => $party->owner_id === $userId,
-        ]);
+        return Inertia::render('Party/Show', $this->partyViewDataService->buildShowPayload($party, $userId));
     }
 
     public function start(Request $request, Party $party): RedirectResponse
@@ -246,106 +122,13 @@ class PartyController extends Controller
             return redirect()->route('parties.show', $party);
         }
 
-        $characters = $party->characters()
-            ->with('user:id,name')
-            ->with([
-                'mediafiles' => fn ($query) => $query
-                    ->wherePivot('role', 'character')
-                    ->latest('mediafiles.id'),
-            ])
-            ->select('id', 'party_id', 'user_id', 'name', 'race', 'class_name', 'gender', 'age', 'height_cm', 'weight_kg', 'traits', 'talents')
-            ->get()
-            ->map(function ($entry) {
-                $image = $entry->mediafiles->first();
-
-                return [
-                    'id' => $entry->id,
-                    'party_id' => $entry->party_id,
-                    'user_id' => $entry->user_id,
-                    'name' => $entry->name,
-                    'race' => $entry->race,
-                    'class_name' => $entry->class_name,
-                    'gender' => $entry->gender,
-                    'age' => $entry->age,
-                    'height_cm' => $entry->height_cm,
-                    'weight_kg' => $entry->weight_kg,
-                    'traits' => $entry->traits ?? [],
-                    'talents' => $entry->talents ?? [],
-                    'user' => [
-                        'id' => $entry->user->id,
-                        'name' => $entry->user->name,
-                    ],
-                    'image_url' => $image ? route('media.public', ['path' => $image->path]) : null,
-                ];
-            })
-            ->values();
-
-        $talentRequests = PartyTalentRequest::query()
-            ->where('party_id', $party->id)
-            ->when($party->owner_id !== $userId, fn ($query) => $query->where('target_user_id', $userId))
-            ->orderByDesc('id')
-            ->limit(100)
-            ->get()
-            ->map(function ($request) use ($party) {
-                $owner = $party->members()->whereKey($request->owner_user_id)->first();
-                $target = $party->members()->whereKey($request->target_user_id)->first();
-                return [
-                    'id' => $request->id,
-                    'partyId' => $request->party_id,
-                    'ownerUserId' => $request->owner_user_id,
-                    'ownerUserName' => $owner?->name ?? 'Spielleiter',
-                    'targetUserId' => $request->target_user_id,
-                    'targetUserName' => $target?->name ?? 'Spieler',
-                    'talents' => collect($request->talents ?? [])->map(fn ($talent) => [
-                        'key' => $talent['key'] ?? '',
-                        'label' => $talent['label'] ?? ($talent['key'] ?? ''),
-                        'rolledValue' => $talent['rolledValue'] ?? null,
-                        'targetValue' => $talent['targetValue'] ?? null,
-                        'isSuccess' => $talent['isSuccess'] ?? null,
-                        'rolledAt' => $talent['rolledAt'] ?? null,
-                    ])->values()->all(),
-                    'modifierType' => $request->modifier_type,
-                    'modifierPoints' => (int) $request->modifier_points,
-                    'status' => $request->status,
-                    'rolledTalentKey' => $request->rolled_talent_key,
-                    'rolledValue' => $request->rolled_value,
-                    'targetValue' => $request->target_value,
-                    'isSuccess' => $request->is_success,
-                    'createdAt' => optional($request->created_at)?->toIso8601String(),
-                    'confirmedAt' => optional($request->confirmed_at)?->toIso8601String(),
-                ];
-            })
-            ->values();
-
-        $payload = [
-            'party' => [
-                'id' => $party->id,
-                'name' => $party->name,
-                'startedAt' => $party->started_at?->toIso8601String(),
-            ],
-            'members' => $party->members()
-                ->select('users.id', 'users.name', 'users.email', 'party_user.is_ready')
-                ->get(),
-            'characters' => $characters,
-            'talentDefinitions' => Talent::query()
-                ->where('is_active', true)
-                ->orderBy('sort_order')
-                ->orderBy('label')
-                ->get(['key', 'label', 'category'])
-                ->map(fn ($talent) => [
-                    'key' => $talent->key,
-                    'label' => $talent->label,
-                    'category' => $talent->category,
-                ])
-                ->values(),
-            'talentRequests' => $talentRequests,
-        ];
+        $payload = $this->partyViewDataService->buildStartedPayload($party, $userId);
 
         if ($party->owner_id === $userId) {
             return Inertia::render('Party/StartedOwner', $payload);
         }
 
-        $ownCharacter = $characters->firstWhere('user_id', $userId);
+        $ownCharacter = collect($payload['characters'])->firstWhere('user_id', $userId);
         if (! $ownCharacter) {
             return redirect()
                 ->route('parties.show', $party)

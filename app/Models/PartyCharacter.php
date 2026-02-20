@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
 
 class PartyCharacter extends Model
@@ -43,5 +44,10 @@ class PartyCharacter extends Model
     public function mediafiles(): MorphToMany
     {
         return $this->morphToMany(Mediafile::class, 'attachable', 'mediafile_attachments');
+    }
+
+    public function inventoryItems(): HasMany
+    {
+        return $this->hasMany(InventoryItem::class, 'party_character_id')->orderBy('sort_order')->orderBy('id');
     }
 }

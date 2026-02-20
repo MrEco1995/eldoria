@@ -5,6 +5,7 @@ use App\Http\Controllers\PartyController;
 use App\Http\Controllers\PartyInviteController;
 use App\Http\Controllers\PartyMemberController;
 use App\Http\Controllers\PartyCharacterController;
+use App\Http\Controllers\PartyInventoryItemController;
 use App\Http\Controllers\PartyRollController;
 use App\Http\Controllers\PartyTalentRequestController;
 use App\Http\Controllers\PublicMediaController;
@@ -72,6 +73,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('parties.members.remove');
     Route::post('/parties/{party}/characters', [PartyCharacterController::class, 'store'])
         ->name('parties.characters.store');
+    Route::post('/parties/{party}/inventory-items', [PartyInventoryItemController::class, 'store'])
+        ->name('parties.inventory-items.store');
+    Route::patch('/parties/{party}/inventory-items/{inventoryItem}', [PartyInventoryItemController::class, 'update'])
+        ->name('parties.inventory-items.update');
+    Route::delete('/parties/{party}/inventory-items/{inventoryItem}', [PartyInventoryItemController::class, 'destroy'])
+        ->name('parties.inventory-items.destroy');
     Route::post('/parties/{party}/rolls', [PartyRollController::class, 'store'])
         ->name('parties.rolls.store');
     Route::post('/parties/{party}/talent-requests', [PartyTalentRequestController::class, 'store'])

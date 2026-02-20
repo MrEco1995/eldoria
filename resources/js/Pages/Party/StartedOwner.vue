@@ -14,7 +14,8 @@ const props = defineProps({
 const page = usePage();
 const ownerName = computed(() => page.props.auth?.user?.name ?? 'Spielleiter');
 
-const playerCharacters = computed(() => props.characters ?? []);
+const characterState = ref([...(props.characters ?? [])]);
+const playerCharacters = computed(() => characterState.value ?? []);
 const activeCharacterId = ref(playerCharacters.value[0]?.id ?? null);
 const activeDetailTab = ref('character');
 const selectedTalentsByUser = ref({});
@@ -22,6 +23,13 @@ const modifierByUser = ref({});
 const requestState = ref([...props.talentRequests]);
 const usePreviewFallback = ref(false);
 const racePreviewIndex = ref(0);
+const inventoryForm = ref({
+    name: '',
+    quantity: 1,
+    category: '',
+    notes: '',
+});
+const inventoryBusy = ref(false);
 
 const raceImageBaseMap = {
     Menschen: 'Mensch',
@@ -40,6 +48,13 @@ const genderImageSuffixMap = {
 
 watch(() => props.talentRequests, (next) => {
     requestState.value = [...(next ?? [])];
+}, { immediate: true });
+
+watch(() => props.characters, (next) => {
+    characterState.value = [...(next ?? [])];
+    if (!characterState.value.some((entry) => Number(entry.id) === Number(activeCharacterId.value))) {
+        activeCharacterId.value = characterState.value[0]?.id ?? null;
+    }
 }, { immediate: true });
 
 const activeCharacter = computed(() => {
@@ -250,6 +265,100 @@ const requestResultText = (request) => {
     return allSuccess ? 'Bestanden' : 'Nicht bestanden';
 };
 
+const resetInventoryForm = () => {
+    inventoryForm.value = {
+        name: '',
+        quantity: 1,
+        category: '',
+        notes: '',
+    };
+};
+
+const replaceInventoryItem = (characterId, item) => {
+    const charIndex = characterState.value.findIndex((entry) => Number(entry.id) === Number(characterId));
+    if (charIndex < 0) return;
+
+    const items = [...(characterState.value[charIndex].inventoryItems ?? [])];
+    const itemIndex = items.findIndex((entry) => Number(entry.id) === Number(item.id));
+    if (itemIndex >= 0) {
+        items[itemIndex] = item;
+    } else {
+        items.push(item);
+    }
+
+    items.sort((a, b) => Number(a.sortOrder) - Number(b.sortOrder));
+    characterState.value[charIndex] = {
+        ...characterState.value[charIndex],
+        inventoryItems: items,
+    };
+};
+
+const removeInventoryItemLocal = (characterId, itemId) => {
+    const charIndex = characterState.value.findIndex((entry) => Number(entry.id) === Number(characterId));
+    if (charIndex < 0) return;
+    characterState.value[charIndex] = {
+        ...characterState.value[charIndex],
+        inventoryItems: (characterState.value[charIndex].inventoryItems ?? []).filter((entry) => Number(entry.id) !== Number(itemId)),
+    };
+};
+
+const addInventoryItem = async () => {
+    if (!activeCharacter.value?.id || !inventoryForm.value.name.trim() || inventoryBusy.value) return;
+
+    inventoryBusy.value = true;
+    try {
+        const response = await window.axios.post(route('parties.inventory-items.store', props.party.id), {
+            party_character_id: activeCharacter.value.id,
+            name: inventoryForm.value.name.trim(),
+            quantity: Number(inventoryForm.value.quantity || 1),
+            category: inventoryForm.value.category?.trim() || null,
+            notes: inventoryForm.value.notes?.trim() || null,
+        });
+        if (response?.data?.item) {
+            replaceInventoryItem(activeCharacter.value.id, response.data.item);
+        }
+        resetInventoryForm();
+    } catch {
+        // handled by backend
+    } finally {
+        inventoryBusy.value = false;
+    }
+};
+
+const updateInventoryQuantity = async (item, delta) => {
+    if (!activeCharacter.value?.id) return;
+    const nextQuantity = Math.max(1, Number(item.quantity) + delta);
+    if (nextQuantity === Number(item.quantity)) return;
+
+    try {
+        const response = await window.axios.patch(route('parties.inventory-items.update', {
+            party: props.party.id,
+            inventoryItem: item.id,
+        }), {
+            quantity: nextQuantity,
+        });
+        if (response?.data?.item) {
+            replaceInventoryItem(activeCharacter.value.id, response.data.item);
+        }
+    } catch {
+        // handled by backend
+    }
+};
+
+const removeInventoryItem = async (item) => {
+    if (!activeCharacter.value?.id) return;
+
+    try {
+        await window.axios.delete(route('parties.inventory-items.destroy', {
+            party: props.party.id,
+            inventoryItem: item.id,
+        }));
+        removeInventoryItemLocal(activeCharacter.value.id, item.id);
+    } catch {
+        // handled by backend
+    }
+};
+
 onMounted(() => {
     if (!window.Echo) return;
     window.Echo.private(`party.${props.party.id}`)
@@ -450,12 +559,56 @@ onBeforeUnmount(() => {
                         </div>
 
                         <div v-else-if="activeDetailTab === 'inventory'" class="card shadow-sm border-0 eldoria-panel">
-                        <div class="card-body p-4 p-md-5">
-                            <div class="text-uppercase small text-muted mb-2 eldoria-kicker">Inventar</div>
-                            <h3 class="h5 mb-2 eldoria-title">Inventar wird vorbereitet</h3>
-                            <p class="text-muted mb-0">Hier siehst du später das Inventar des ausgewählten Spielers.</p>
+                            <div class="card-body p-4 p-md-5">
+                                <div class="text-uppercase small text-muted mb-2 eldoria-kicker">Inventar</div>
+                                <h3 class="h5 mb-3 eldoria-title">Inventar von {{ activeCharacter.name }}</h3>
+
+                                <div class="row g-2 mb-4">
+                                    <div class="col-12 col-md-5">
+                                        <input v-model="inventoryForm.name" type="text" class="form-control" placeholder="Gegenstand">
+                                    </div>
+                                    <div class="col-6 col-md-2">
+                                        <input v-model.number="inventoryForm.quantity" type="number" min="1" max="999" class="form-control" placeholder="Menge">
+                                    </div>
+                                    <div class="col-6 col-md-3">
+                                        <input v-model="inventoryForm.category" type="text" class="form-control" placeholder="Kategorie">
+                                    </div>
+                                    <div class="col-12 col-md-2">
+                                        <button type="button" class="btn btn-primary w-100" :disabled="inventoryBusy" @click="addInventoryItem">
+                                            Hinzufügen
+                                        </button>
+                                    </div>
+                                    <div class="col-12">
+                                        <input v-model="inventoryForm.notes" type="text" class="form-control" placeholder="Notiz (optional)">
+                                    </div>
+                                </div>
+
+                                <div class="bag-area p-3 p-md-4">
+                                    <div class="bag-mouth mb-3">Jutebeutel</div>
+                                    <div v-if="(activeCharacter.inventoryItems ?? []).length === 0" class="text-muted small">
+                                        Dieser Beutel ist leer.
+                                    </div>
+                                    <div v-else class="row g-2">
+                                        <div v-for="item in activeCharacter.inventoryItems" :key="item.id" class="col-12 col-md-6">
+                                            <div class="bag-item d-flex justify-content-between align-items-start gap-2">
+                                                <div>
+                                                    <div class="fw-semibold">{{ item.name }}</div>
+                                                    <div class="small text-muted">
+                                                        {{ item.category || 'Allgemein' }}<span v-if="item.notes"> · {{ item.notes }}</span>
+                                                    </div>
+                                                </div>
+                                                <div class="d-flex align-items-center gap-1">
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary" @click="updateInventoryQuantity(item, -1)">-</button>
+                                                    <span class="px-2 small fw-semibold">{{ item.quantity }}</span>
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary" @click="updateInventoryQuantity(item, 1)">+</button>
+                                                    <button type="button" class="btn btn-sm btn-outline-danger ms-1" @click="removeInventoryItem(item)">x</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                    </div>
 
                         <div v-else class="card shadow-sm border-0 eldoria-panel">
                         <div class="card-body p-4 p-md-5">
@@ -554,5 +707,39 @@ onBeforeUnmount(() => {
     max-height: 460px;
     object-fit: cover;
     border-color: var(--eldoria-border) !important;
+}
+
+.bag-area {
+    background:
+        radial-gradient(circle at 20% 15%, rgba(255, 255, 255, 0.25), transparent 35%),
+        repeating-linear-gradient(
+            45deg,
+            rgba(134, 97, 54, 0.14) 0px,
+            rgba(134, 97, 54, 0.14) 6px,
+            rgba(122, 88, 49, 0.08) 6px,
+            rgba(122, 88, 49, 0.08) 12px
+        ),
+        #b48650;
+    border: 2px solid #8d6234;
+    border-radius: 18px 18px 26px 26px;
+    box-shadow: inset 0 2px 8px rgba(72, 45, 21, 0.35);
+}
+
+.bag-mouth {
+    display: inline-block;
+    background: #6f4c27;
+    color: #f7ead5;
+    font-size: 0.74rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+}
+
+.bag-item {
+    background: rgba(255, 246, 230, 0.9);
+    border: 1px solid rgba(96, 64, 30, 0.25);
+    border-radius: 10px;
+    padding: 0.6rem 0.65rem;
 }
 </style>
