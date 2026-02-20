@@ -31,6 +31,50 @@ const inventoryForm = ref({
 });
 const inventoryBusy = ref(false);
 
+const inventoryPresetCategories = [
+    'Waffen',
+    'Rüstung',
+    'Verbrauchbar',
+    'Werkzeug',
+    'Magie',
+    'Quest',
+    'Sonstiges',
+];
+
+const inventoryPresetItemsByCategory = {
+    Waffen: [
+        { name: 'Kurzschwert', quantity: 1 },
+        { name: 'Dolch', quantity: 1 },
+        { name: 'Kurzbogen', quantity: 1 },
+    ],
+    Rüstung: [
+        { name: 'Lederwams', quantity: 1 },
+        { name: 'Holzschild', quantity: 1 },
+    ],
+    Verbrauchbar: [
+        { name: 'Heiltrank', quantity: 2 },
+        { name: 'Ration', quantity: 3 },
+        { name: 'Fackel', quantity: 2 },
+    ],
+    Werkzeug: [
+        { name: 'Seil (10m)', quantity: 1 },
+        { name: 'Dietrichset', quantity: 1 },
+        { name: 'Feuerstein', quantity: 1 },
+    ],
+    Magie: [
+        { name: 'Runenstein', quantity: 1 },
+        { name: 'Aetherkristall', quantity: 1 },
+    ],
+    Quest: [
+        { name: 'Versiegelter Brief', quantity: 1 },
+        { name: 'Alte Karte', quantity: 1 },
+    ],
+    Sonstiges: [
+        { name: 'Reisetagebuch', quantity: 1 },
+        { name: 'Wasserflasche', quantity: 1 },
+    ],
+};
+
 const raceImageBaseMap = {
     Menschen: 'Mensch',
     Elfen: 'Elf',
@@ -307,8 +351,7 @@ const addInventoryItem = async () => {
 
     inventoryBusy.value = true;
     try {
-        const response = await window.axios.post(route('parties.inventory-items.store', props.party.id), {
-            party_character_id: activeCharacter.value.id,
+        const response = await createInventoryItem({
             name: inventoryForm.value.name.trim(),
             quantity: Number(inventoryForm.value.quantity || 1),
             category: inventoryForm.value.category?.trim() || null,
@@ -318,6 +361,40 @@ const addInventoryItem = async () => {
             replaceInventoryItem(activeCharacter.value.id, response.data.item);
         }
         resetInventoryForm();
+    } catch {
+        // handled by backend
+    } finally {
+        inventoryBusy.value = false;
+    }
+};
+
+const createInventoryItem = async ({ name, quantity = 1, category = null, notes = null }) => {
+    return window.axios.post(route('parties.inventory-items.store', props.party.id), {
+        party_character_id: activeCharacter.value.id,
+        name,
+        quantity,
+        category,
+        notes,
+    });
+};
+
+const setInventoryCategory = (category) => {
+    inventoryForm.value.category = category;
+};
+
+const quickAddPresetItem = async (presetItem, category) => {
+    if (!activeCharacter.value?.id || inventoryBusy.value) return;
+    inventoryBusy.value = true;
+    try {
+        const response = await createInventoryItem({
+            name: presetItem.name,
+            quantity: Number(presetItem.quantity || 1),
+            category,
+            notes: null,
+        });
+        if (response?.data?.item) {
+            replaceInventoryItem(activeCharacter.value.id, response.data.item);
+        }
     } catch {
         // handled by backend
     } finally {
@@ -562,6 +639,44 @@ onBeforeUnmount(() => {
                             <div class="card-body p-4 p-md-5">
                                 <div class="text-uppercase small text-muted mb-2 eldoria-kicker">Inventar</div>
                                 <h3 class="h5 mb-3 eldoria-title">Inventar von {{ activeCharacter.name }}</h3>
+
+                                <div class="mb-3">
+                                    <div class="small text-uppercase text-muted mb-2 eldoria-kicker-soft">Kategorien</div>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        <button
+                                            v-for="category in inventoryPresetCategories"
+                                            :key="category"
+                                            type="button"
+                                            class="btn btn-sm"
+                                            :class="inventoryForm.category === category ? 'btn-primary' : 'btn-outline-secondary'"
+                                            @click="setInventoryCategory(category)"
+                                        >
+                                            {{ category }}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="mb-4">
+                                    <div class="small text-uppercase text-muted mb-2 eldoria-kicker-soft">Standard-Items</div>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        <button
+                                            v-for="(presetItem, idx) in (inventoryPresetItemsByCategory[inventoryForm.category] ?? [])"
+                                            :key="`${inventoryForm.category}:${presetItem.name}:${idx}`"
+                                            type="button"
+                                            class="btn btn-sm btn-outline-primary"
+                                            :disabled="inventoryBusy"
+                                            @click="quickAddPresetItem(presetItem, inventoryForm.category)"
+                                        >
+                                            + {{ presetItem.name }} <span class="opacity-75">x{{ presetItem.quantity }}</span>
+                                        </button>
+                                        <span
+                                            v-if="!(inventoryPresetItemsByCategory[inventoryForm.category] ?? []).length"
+                                            class="text-muted small"
+                                        >
+                                            Wähle oben eine Kategorie, um Vorschläge zu sehen.
+                                        </span>
+                                    </div>
+                                </div>
 
                                 <div class="row g-2 mb-4">
                                     <div class="col-12 col-md-5">

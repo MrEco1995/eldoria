@@ -16,12 +16,7 @@ const rollingKeys = ref({});
 const activeTab = ref('character');
 const usePreviewFallback = ref(false);
 const inventoryItems = ref([...(props.character?.inventoryItems ?? [])]);
-const inventoryForm = ref({
-    name: '',
-    quantity: 1,
-    category: '',
-    notes: '',
-});
+const noteDraftByItemId = ref({});
 const inventoryBusy = ref(false);
 
 const raceImageBaseMap = {
@@ -184,66 +179,53 @@ const requestResultText = (request) => {
 
 const makeRollKey = (requestId, talentKey) => `${requestId}:${talentKey}`;
 
-const resetInventoryForm = () => {
-    inventoryForm.value = {
-        name: '',
-        quantity: 1,
-        category: '',
-        notes: '',
-    };
-};
-
-const addInventoryItem = async () => {
-    if (!props.character?.id || !inventoryForm.value.name.trim() || inventoryBusy.value) return;
-    inventoryBusy.value = true;
-    try {
-        const response = await window.axios.post(route('parties.inventory-items.store', props.party.id), {
-            party_character_id: props.character.id,
-            name: inventoryForm.value.name.trim(),
-            quantity: Number(inventoryForm.value.quantity || 1),
-            category: inventoryForm.value.category?.trim() || null,
-            notes: inventoryForm.value.notes?.trim() || null,
-        });
-        if (response?.data?.item) {
-            inventoryItems.value.push(response.data.item);
-            inventoryItems.value.sort((a, b) => Number(a.sortOrder) - Number(b.sortOrder));
-        }
-        resetInventoryForm();
-    } catch {
-        // handled by backend flashes/logging
-    } finally {
-        inventoryBusy.value = false;
+const noteDraftFor = (item) => {
+    const key = String(item.id);
+    if (noteDraftByItemId.value[key] === undefined) {
+        noteDraftByItemId.value[key] = item.notes ?? '';
     }
+    return noteDraftByItemId.value[key];
 };
 
-const updateInventoryQuantity = async (item, delta) => {
-    const nextQuantity = Math.max(1, Number(item.quantity) + delta);
-    if (nextQuantity === Number(item.quantity)) return;
+const saveItemNote = async (item) => {
+    const key = String(item.id);
+    const notes = (noteDraftByItemId.value[key] ?? '').trim();
     try {
         const response = await window.axios.patch(route('parties.inventory-items.update', {
             party: props.party.id,
             inventoryItem: item.id,
         }), {
-            quantity: nextQuantity,
+            notes: notes || null,
         });
         if (response?.data?.item) {
             const idx = inventoryItems.value.findIndex((entry) => Number(entry.id) === Number(item.id));
             if (idx >= 0) inventoryItems.value[idx] = response.data.item;
+            noteDraftByItemId.value[key] = response.data.item.notes ?? '';
         }
     } catch {
-        // handled by backend
+        // ignore
     }
 };
 
-const removeInventoryItem = async (item) => {
+const useItem = async (item) => {
+    if (inventoryBusy.value) return;
+    inventoryBusy.value = true;
     try {
-        await window.axios.delete(route('parties.inventory-items.destroy', {
+        const response = await window.axios.post(route('parties.inventory-items.use', {
             party: props.party.id,
             inventoryItem: item.id,
         }));
-        inventoryItems.value = inventoryItems.value.filter((entry) => Number(entry.id) !== Number(item.id));
+        if (response?.data?.removed) {
+            inventoryItems.value = inventoryItems.value.filter((entry) => Number(entry.id) !== Number(response.data.itemId));
+            delete noteDraftByItemId.value[String(item.id)];
+        } else if (response?.data?.item) {
+            const idx = inventoryItems.value.findIndex((entry) => Number(entry.id) === Number(item.id));
+            if (idx >= 0) inventoryItems.value[idx] = response.data.item;
+        }
     } catch {
-        // handled by backend
+        // ignore
+    } finally {
+        inventoryBusy.value = false;
     }
 };
 
@@ -441,26 +423,6 @@ onBeforeUnmount(() => {
                     <div class="text-uppercase small text-muted mb-2 eldoria-kicker">Inventar</div>
                     <h3 class="h5 mb-3 eldoria-title">Reiseausrüstung von {{ character.name }}</h3>
 
-                    <div class="row g-2 mb-4">
-                        <div class="col-12 col-md-5">
-                            <input v-model="inventoryForm.name" type="text" class="form-control" placeholder="Gegenstand">
-                        </div>
-                        <div class="col-6 col-md-2">
-                            <input v-model.number="inventoryForm.quantity" type="number" min="1" max="999" class="form-control" placeholder="Menge">
-                        </div>
-                        <div class="col-6 col-md-3">
-                            <input v-model="inventoryForm.category" type="text" class="form-control" placeholder="Kategorie">
-                        </div>
-                        <div class="col-12 col-md-2">
-                            <button type="button" class="btn btn-primary w-100" :disabled="inventoryBusy" @click="addInventoryItem">
-                                Hinzufügen
-                            </button>
-                        </div>
-                        <div class="col-12">
-                            <input v-model="inventoryForm.notes" type="text" class="form-control" placeholder="Notiz (optional)">
-                        </div>
-                    </div>
-
                     <div class="bag-area p-3 p-md-4">
                         <div class="bag-mouth mb-3">Jutebeutel</div>
                         <div v-if="inventoryItems.length === 0" class="text-muted small">
@@ -470,16 +432,36 @@ onBeforeUnmount(() => {
                             <div v-for="item in inventoryItems" :key="item.id" class="col-12 col-md-6">
                                 <div class="bag-item d-flex justify-content-between align-items-start gap-2">
                                     <div>
-                                        <div class="fw-semibold">{{ item.name }}</div>
+                                        <div class="fw-semibold d-flex align-items-center gap-2">
+                                            <span>{{ item.name }}</span>
+                                            <span
+                                                v-if="item.notes"
+                                                class="inventory-note-icon"
+                                                :title="item.notes"
+                                                aria-label="Notiz vorhanden"
+                                            >i</span>
+                                        </div>
                                         <div class="small text-muted">
-                                            {{ item.category || 'Allgemein' }}<span v-if="item.notes"> · {{ item.notes }}</span>
+                                            {{ item.category || 'Allgemein' }}
+                                        </div>
+                                        <div class="mt-2 d-flex gap-2">
+                                            <input
+                                                :value="noteDraftFor(item)"
+                                                type="text"
+                                                class="form-control form-control-sm"
+                                                placeholder="Notiz zu diesem Item"
+                                                @input="noteDraftByItemId[String(item.id)] = $event.target.value"
+                                            >
+                                            <button type="button" class="btn btn-sm btn-outline-primary" @click="saveItemNote(item)">
+                                                Notiz speichern
+                                            </button>
                                         </div>
                                     </div>
                                     <div class="d-flex align-items-center gap-1">
-                                        <button type="button" class="btn btn-sm btn-outline-secondary" @click="updateInventoryQuantity(item, -1)">-</button>
                                         <span class="px-2 small fw-semibold">{{ item.quantity }}</span>
-                                        <button type="button" class="btn btn-sm btn-outline-secondary" @click="updateInventoryQuantity(item, 1)">+</button>
-                                        <button type="button" class="btn btn-sm btn-outline-danger ms-1" @click="removeInventoryItem(item)">x</button>
+                                        <button type="button" class="btn btn-sm btn-outline-success ms-1" :disabled="inventoryBusy" @click="useItem(item)">
+                                            Nutzen
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -616,5 +598,20 @@ onBeforeUnmount(() => {
     border: 1px solid rgba(96, 64, 30, 0.25);
     border-radius: 10px;
     padding: 0.6rem 0.65rem;
+}
+
+.inventory-note-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #5f3f1d;
+    background: #f5deb5;
+    border: 1px solid #b9894f;
+    cursor: help;
 }
 </style>

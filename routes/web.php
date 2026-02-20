@@ -77,6 +77,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('parties.inventory-items.store');
     Route::patch('/parties/{party}/inventory-items/{inventoryItem}', [PartyInventoryItemController::class, 'update'])
         ->name('parties.inventory-items.update');
+    Route::post('/parties/{party}/inventory-items/{inventoryItem}/use', [PartyInventoryItemController::class, 'use'])
+        ->name('parties.inventory-items.use');
     Route::delete('/parties/{party}/inventory-items/{inventoryItem}', [PartyInventoryItemController::class, 'destroy'])
         ->name('parties.inventory-items.destroy');
     Route::post('/parties/{party}/rolls', [PartyRollController::class, 'store'])
