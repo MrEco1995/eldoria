@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\PartyInventoryItemUpdated;
 use App\Models\InventoryItem;
 use App\Models\Party;
 use App\Models\PartyCharacter;
@@ -58,6 +59,12 @@ class PartyInventoryItemController extends Controller
             ]);
         }
 
+        $this->broadcastUpdate($party->id, [
+            'action' => 'upsert',
+            'partyCharacterId' => $character->id,
+            'item' => $this->toPayload($item),
+        ]);
+
         return response()->json([
             'ok' => true,
             'item' => $this->toPayload($item),
@@ -92,6 +99,12 @@ class PartyInventoryItemController extends Controller
         $inventoryItem->fill($data);
         $inventoryItem->save();
 
+        $this->broadcastUpdate($party->id, [
+            'action' => 'upsert',
+            'partyCharacterId' => $character->id,
+            'item' => $this->toPayload($inventoryItem),
+        ]);
+
         return response()->json([
             'ok' => true,
             'item' => $this->toPayload($inventoryItem),
@@ -109,6 +122,12 @@ class PartyInventoryItemController extends Controller
             ->whereKey($inventoryItem->party_character_id)
             ->firstOrFail();
         $this->assertCanManageInventory($party, $user->id, $character->user_id);
+
+        $this->broadcastUpdate($party->id, [
+            'action' => 'remove',
+            'partyCharacterId' => $character->id,
+            'itemId' => $inventoryItem->id,
+        ]);
 
         $inventoryItem->delete();
 
@@ -130,6 +149,12 @@ class PartyInventoryItemController extends Controller
             $inventoryItem->quantity = (int) $inventoryItem->quantity - 1;
             $inventoryItem->save();
 
+            $this->broadcastUpdate($party->id, [
+                'action' => 'upsert',
+                'partyCharacterId' => $character->id,
+                'item' => $this->toPayload($inventoryItem),
+            ]);
+
             return response()->json([
                 'ok' => true,
                 'removed' => false,
@@ -138,6 +163,13 @@ class PartyInventoryItemController extends Controller
         }
 
         $deletedId = $inventoryItem->id;
+
+        $this->broadcastUpdate($party->id, [
+            'action' => 'remove',
+            'partyCharacterId' => $character->id,
+            'itemId' => $deletedId,
+        ]);
+
         $inventoryItem->delete();
 
         return response()->json([
@@ -165,5 +197,18 @@ class PartyInventoryItemController extends Controller
             'notes' => $item->notes,
             'sortOrder' => (int) $item->sort_order,
         ];
+    }
+
+    private function broadcastUpdate(int $partyId, array $payload): void
+    {
+        if (!config('realtime.enabled')) {
+            return;
+        }
+
+        try {
+            event(new PartyInventoryItemUpdated($partyId, $payload));
+        } catch (\Throwable $exception) {
+            // Keep inventory flow functional even if realtime fails.
+        }
     }
 }

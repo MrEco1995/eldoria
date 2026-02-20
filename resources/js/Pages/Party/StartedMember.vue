@@ -17,6 +17,7 @@ const activeTab = ref('character');
 const usePreviewFallback = ref(false);
 const inventoryItems = ref([...(props.character?.inventoryItems ?? [])]);
 const noteDraftByItemId = ref({});
+const noteEditorOpenByItemId = ref({});
 const inventoryBusy = ref(false);
 
 const raceImageBaseMap = {
@@ -148,6 +149,36 @@ const onRequestConfirmed = (event) => {
     upsertRequest(event.request);
 };
 
+const upsertInventoryItemLocal = (item) => {
+    const idx = inventoryItems.value.findIndex((entry) => Number(entry.id) === Number(item.id));
+    if (idx >= 0) {
+        inventoryItems.value[idx] = item;
+    } else {
+        inventoryItems.value.push(item);
+    }
+    inventoryItems.value.sort((a, b) => Number(a.sortOrder) - Number(b.sortOrder));
+    noteDraftByItemId.value[String(item.id)] = item.notes ?? '';
+};
+
+const removeInventoryItemLocal = (itemId) => {
+    inventoryItems.value = inventoryItems.value.filter((entry) => Number(entry.id) !== Number(itemId));
+    delete noteDraftByItemId.value[String(itemId)];
+};
+
+const onInventoryItemUpdated = (event) => {
+    if (Number(event.partyId) !== Number(props.party.id)) return;
+    if (Number(event.partyCharacterId) !== Number(props.character.id)) return;
+
+    if (event.action === 'remove' && event.itemId) {
+        removeInventoryItemLocal(event.itemId);
+        return;
+    }
+
+    if (event.action === 'upsert' && event.item) {
+        upsertInventoryItemLocal(event.item);
+    }
+};
+
 const modifierLabel = (request) => {
     if (!request || request.modifierType === 'none' || !request.modifierPoints) return 'Normal';
     return request.modifierType === 'easy'
@@ -187,6 +218,17 @@ const noteDraftFor = (item) => {
     return noteDraftByItemId.value[key];
 };
 
+const isNoteEditorOpen = (itemId) => Boolean(noteEditorOpenByItemId.value[String(itemId)]);
+
+const toggleNoteEditor = (itemId) => {
+    const key = String(itemId);
+    noteEditorOpenByItemId.value[key] = !noteEditorOpenByItemId.value[key];
+};
+
+const closeNoteEditor = (itemId) => {
+    noteEditorOpenByItemId.value[String(itemId)] = false;
+};
+
 const saveItemNote = async (item) => {
     const key = String(item.id);
     const notes = (noteDraftByItemId.value[key] ?? '').trim();
@@ -201,6 +243,7 @@ const saveItemNote = async (item) => {
             const idx = inventoryItems.value.findIndex((entry) => Number(entry.id) === Number(item.id));
             if (idx >= 0) inventoryItems.value[idx] = response.data.item;
             noteDraftByItemId.value[key] = response.data.item.notes ?? '';
+            closeNoteEditor(item.id);
         }
     } catch {
         // ignore
@@ -218,6 +261,7 @@ const useItem = async (item) => {
         if (response?.data?.removed) {
             inventoryItems.value = inventoryItems.value.filter((entry) => Number(entry.id) !== Number(response.data.itemId));
             delete noteDraftByItemId.value[String(item.id)];
+            delete noteEditorOpenByItemId.value[String(item.id)];
         } else if (response?.data?.item) {
             const idx = inventoryItems.value.findIndex((entry) => Number(entry.id) === Number(item.id));
             if (idx >= 0) inventoryItems.value[idx] = response.data.item;
@@ -259,7 +303,8 @@ onMounted(() => {
     if (!window.Echo) return;
     window.Echo.private(`party.${props.party.id}`)
         .listen('.party.talent-request.created', onRequestCreated)
-        .listen('.party.talent-request.confirmed', onRequestConfirmed);
+        .listen('.party.talent-request.confirmed', onRequestConfirmed)
+        .listen('.party.inventory-item.updated', onInventoryItemUpdated);
 });
 
 onBeforeUnmount(() => {
@@ -434,17 +479,25 @@ onBeforeUnmount(() => {
                                     <div>
                                         <div class="fw-semibold d-flex align-items-center gap-2">
                                             <span>{{ item.name }}</span>
-                                            <span
-                                                v-if="item.notes"
-                                                class="inventory-note-icon"
-                                                :title="item.notes"
-                                                aria-label="Notiz vorhanden"
-                                            >i</span>
+                                            <span class="note-tooltip-wrap">
+                                                <button
+                                                    type="button"
+                                                    class="inventory-note-icon"
+                                                    :class="{ 'has-note': item.notes }"
+                                                    aria-label="Notiz anzeigen oder bearbeiten"
+                                                    @click="toggleNoteEditor(item.id)"
+                                                >
+                                                    i
+                                                </button>
+                                                <span class="note-tooltip-content">
+                                                    {{ item.notes || 'Keine Notiz. Klicke auf das Icon zum Bearbeiten.' }}
+                                                </span>
+                                            </span>
                                         </div>
                                         <div class="small text-muted">
                                             {{ item.category || 'Allgemein' }}
                                         </div>
-                                        <div class="mt-2 d-flex gap-2">
+                                        <div v-if="isNoteEditorOpen(item.id)" class="mt-2 d-flex gap-2">
                                             <input
                                                 :value="noteDraftFor(item)"
                                                 type="text"
@@ -454,6 +507,9 @@ onBeforeUnmount(() => {
                                             >
                                             <button type="button" class="btn btn-sm btn-outline-primary" @click="saveItemNote(item)">
                                                 Notiz speichern
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" @click="closeNoteEditor(item.id)">
+                                                Schließen
                                             </button>
                                         </div>
                                     </div>
@@ -612,6 +668,44 @@ onBeforeUnmount(() => {
     color: #5f3f1d;
     background: #f5deb5;
     border: 1px solid #b9894f;
-    cursor: help;
+    cursor: pointer;
+}
+
+.inventory-note-icon.has-note {
+    color: #fff;
+    background: #7b552a;
+    border-color: #5f3f1d;
+}
+
+.note-tooltip-wrap {
+    position: relative;
+    display: inline-flex;
+}
+
+.note-tooltip-content {
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 8px);
+    transform: translateX(-50%);
+    min-width: 220px;
+    max-width: 320px;
+    padding: 0.45rem 0.55rem;
+    border-radius: 8px;
+    background: rgba(44, 30, 16, 0.95);
+    color: #f7eddc;
+    border: 1px solid rgba(218, 183, 130, 0.45);
+    box-shadow: 0 10px 18px rgba(0, 0, 0, 0.22);
+    font-size: 0.75rem;
+    line-height: 1.25;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.12s ease;
+    white-space: normal;
+    z-index: 20;
+}
+
+.note-tooltip-wrap:hover .note-tooltip-content,
+.note-tooltip-wrap:focus-within .note-tooltip-content {
+    opacity: 1;
 }
 </style>

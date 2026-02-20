@@ -212,6 +212,20 @@ const onRequestConfirmed = (event) => {
     upsertRequest(event.request);
 };
 
+const onInventoryItemUpdated = (event) => {
+    if (Number(event.partyId) !== Number(props.party.id)) return;
+    if (!event.partyCharacterId) return;
+
+    if (event.action === 'remove' && event.itemId) {
+        removeInventoryItemLocal(event.partyCharacterId, event.itemId);
+        return;
+    }
+
+    if (event.action === 'upsert' && event.item) {
+        replaceInventoryItem(event.partyCharacterId, event.item);
+    }
+};
+
 const modifierLabel = (request) => {
     if (!request || request.modifierType === 'none' || !request.modifierPoints) {
         return 'Normal';
@@ -440,7 +454,8 @@ onMounted(() => {
     if (!window.Echo) return;
     window.Echo.private(`party.${props.party.id}`)
         .listen('.party.talent-request.created', onRequestCreated)
-        .listen('.party.talent-request.confirmed', onRequestConfirmed);
+        .listen('.party.talent-request.confirmed', onRequestConfirmed)
+        .listen('.party.inventory-item.updated', onInventoryItemUpdated);
 });
 
 onBeforeUnmount(() => {
