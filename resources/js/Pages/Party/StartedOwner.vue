@@ -17,7 +17,8 @@ const ownerName = computed(() => page.props.auth?.user?.name ?? 'Spielleiter');
 
 const characterState = ref([...(props.characters ?? [])]);
 const playerCharacters = computed(() => characterState.value ?? []);
-const activeCharacterId = ref(playerCharacters.value[0]?.id ?? null);
+const NPC_TRADE_TOP_TAB = 'npc-trade';
+const activeCharacterId = ref(playerCharacters.value[0]?.id ?? NPC_TRADE_TOP_TAB);
 const activeDetailTab = ref('character');
 const selectedTalentsByUser = ref({});
 const modifierByUser = ref({});
@@ -112,6 +113,9 @@ watch(() => props.talentRequests, (next) => {
 
 watch(() => props.characters, (next) => {
     characterState.value = [...(next ?? [])];
+    if (activeCharacterId.value === NPC_TRADE_TOP_TAB) {
+        return;
+    }
     if (!characterState.value.some((entry) => Number(entry.id) === Number(activeCharacterId.value))) {
         activeCharacterId.value = characterState.value[0]?.id ?? null;
     }
@@ -131,6 +135,8 @@ watch(() => props.npcTradeOffer, (nextOffer) => {
 const activeCharacter = computed(() => {
     return playerCharacters.value.find((entry) => entry.id === activeCharacterId.value) ?? null;
 });
+
+const isNpcTradeTopTabActive = computed(() => activeCharacterId.value === NPC_TRADE_TOP_TAB);
 
 const walletTypeLabels = {
     in: 'IN',
@@ -703,6 +709,11 @@ onBeforeUnmount(() => {
             <div v-else class="card shadow-sm border-0 eldoria-panel">
                 <div class="card-body p-3 p-md-4">
                     <ul class="nav nav-tabs eldoria-nav-tabs mb-3 flex-nowrap overflow-auto" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button type="button" class="nav-link" :class="{ active: isNpcTradeTopTabActive }" @click="activeCharacterId = NPC_TRADE_TOP_TAB">
+                            NPC Handel
+                        </button>
+                    </li>
                     <li v-for="entry in playerCharacters" :key="entry.id" class="nav-item" role="presentation">
                         <button type="button" class="nav-link" :class="{ active: activeCharacterId === entry.id }" @click="activeCharacterId = entry.id">
                             {{ entry.user.name }}
@@ -710,7 +721,60 @@ onBeforeUnmount(() => {
                     </li>
                     </ul>
 
-                    <div v-if="activeCharacter">
+                    <div v-if="isNpcTradeTopTabActive" class="card shadow-sm border-0 eldoria-panel">
+                        <div class="card-body p-4 p-md-5">
+                            <div class="text-uppercase small text-muted mb-2 eldoria-kicker">NPC Handel</div>
+                            <h3 class="h5 mb-3 eldoria-title">NPC konfigurieren & freigeben</h3>
+                            <div class="wallet-panel p-3 p-md-4">
+                                <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-3">
+                                    <div class="small text-uppercase text-muted eldoria-kicker-soft">Status</div>
+                                    <span class="badge" :class="npcTradeState?.isOpen ? 'text-bg-success' : 'text-bg-secondary'">
+                                        {{ npcTradeState?.isOpen ? 'Freigegeben' : 'Nicht freigegeben' }}
+                                    </span>
+                                </div>
+                                <div class="row g-2 mb-2">
+                                    <div class="col-12 col-md-4">
+                                        <label class="form-label small mb-1">NPC Name</label>
+                                        <input v-model="npcTradeForm.name" type="text" class="form-control form-control-sm" placeholder="z.B. Händler Borin">
+                                    </div>
+                                    <div class="col-12 col-md-8">
+                                        <label class="form-label small mb-1">Items (eine Zeile: Name;Menge;Kategorie;Notiz)</label>
+                                        <textarea
+                                            v-model="npcTradeForm.itemsText"
+                                            class="form-control form-control-sm"
+                                            rows="4"
+                                            placeholder="Heiltrank;2;Verbrauchbar;Selten"
+                                        ></textarea>
+                                    </div>
+                                </div>
+                                <div class="d-flex gap-2 flex-wrap align-items-center">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" :disabled="npcTradeBusy" @click="saveNpcTradeOffer">
+                                        Speichern
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-primary" :disabled="npcTradeBusy" @click="openNpcTradeOffer">
+                                        Zum Handeln freigeben
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" :disabled="npcTradeBusy" @click="closeNpcTradeOffer">
+                                        Freigabe schließen
+                                    </button>
+                                    <button
+                                        v-if="npcTradeState?.activePartyCharacterId"
+                                        type="button"
+                                        class="btn btn-sm btn-outline-warning"
+                                        :disabled="npcTradeBusy"
+                                        @click="releaseNpcTradeSession"
+                                    >
+                                        Aktiven Handel freigeben
+                                    </button>
+                                    <span class="small text-muted" v-if="npcTradeState?.activeCharacterName">
+                                        Aktiver Handel mit: {{ npcTradeState.activeCharacterName }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div v-else-if="activeCharacter">
                         <ul class="nav nav-tabs eldoria-nav-tabs mb-3" role="tablist">
                         <li class="nav-item" role="presentation">
                             <button
@@ -876,53 +940,6 @@ onBeforeUnmount(() => {
                                             </svg>
                                         </span>
                                         <span>{{ activeWallet?.display ?? '0G 0S 0K' }}</span>
-                                    </div>
-                                </div>
-
-                                <div class="wallet-panel mb-4 p-3 p-md-4">
-                                    <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-3">
-                                        <div class="small text-uppercase text-muted eldoria-kicker-soft">NPC Handel</div>
-                                        <span class="badge" :class="npcTradeState?.isOpen ? 'text-bg-success' : 'text-bg-secondary'">
-                                            {{ npcTradeState?.isOpen ? 'Freigegeben' : 'Nicht freigegeben' }}
-                                        </span>
-                                    </div>
-                                    <div class="row g-2 mb-2">
-                                        <div class="col-12 col-md-4">
-                                            <label class="form-label small mb-1">NPC Name</label>
-                                            <input v-model="npcTradeForm.name" type="text" class="form-control form-control-sm" placeholder="z.B. Händler Borin">
-                                        </div>
-                                        <div class="col-12 col-md-8">
-                                            <label class="form-label small mb-1">Items (eine Zeile: Name;Menge;Kategorie;Notiz)</label>
-                                            <textarea
-                                                v-model="npcTradeForm.itemsText"
-                                                class="form-control form-control-sm"
-                                                rows="3"
-                                                placeholder="Heiltrank;2;Verbrauchbar;Selten"
-                                            ></textarea>
-                                        </div>
-                                    </div>
-                                    <div class="d-flex gap-2 flex-wrap align-items-center">
-                                        <button type="button" class="btn btn-sm btn-outline-primary" :disabled="npcTradeBusy" @click="saveNpcTradeOffer">
-                                            Speichern
-                                        </button>
-                                        <button type="button" class="btn btn-sm btn-primary" :disabled="npcTradeBusy" @click="openNpcTradeOffer">
-                                            Zum Handeln freigeben
-                                        </button>
-                                        <button type="button" class="btn btn-sm btn-outline-danger" :disabled="npcTradeBusy" @click="closeNpcTradeOffer">
-                                            Freigabe schließen
-                                        </button>
-                                        <button
-                                            v-if="npcTradeState?.activePartyCharacterId"
-                                            type="button"
-                                            class="btn btn-sm btn-outline-warning"
-                                            :disabled="npcTradeBusy"
-                                            @click="releaseNpcTradeSession"
-                                        >
-                                            Aktiven Handel freigeben
-                                        </button>
-                                        <span class="small text-muted" v-if="npcTradeState?.activeCharacterName">
-                                            Aktiver Handel mit: {{ npcTradeState.activeCharacterName }}
-                                        </span>
                                     </div>
                                 </div>
 
