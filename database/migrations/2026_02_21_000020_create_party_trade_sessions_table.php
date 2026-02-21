@@ -18,9 +18,9 @@ return new class extends Migration
             $table->timestamp('closed_at')->nullable();
             $table->timestamps();
 
-            $table->index(['party_id', 'status']);
-            $table->index(['initiator_party_character_id', 'status']);
-            $table->index(['counterparty_party_character_id', 'status']);
+            $table->index(['party_id', 'status'], 'pts_party_status_idx');
+            $table->index(['initiator_party_character_id', 'status'], 'pts_init_char_status_idx');
+            $table->index(['counterparty_party_character_id', 'status'], 'pts_counter_char_status_idx');
         });
     }
 
