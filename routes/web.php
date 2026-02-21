@@ -7,6 +7,7 @@ use App\Http\Controllers\PartyMemberController;
 use App\Http\Controllers\PartyCharacterController;
 use App\Http\Controllers\PartyInventoryItemController;
 use App\Http\Controllers\PartyRollController;
+use App\Http\Controllers\PartyNpcTradeOfferController;
 use App\Http\Controllers\PartyTalentRequestController;
 use App\Http\Controllers\PartyTradeSessionController;
 use App\Http\Controllers\PartyWalletTransactionController;
@@ -85,6 +86,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('parties.trades.store');
     Route::post('/parties/{party}/trades/{tradeSession}/accept', [PartyTradeSessionController::class, 'accept'])
         ->name('parties.trades.accept');
+    Route::post('/parties/{party}/npc-trade-offer', [PartyNpcTradeOfferController::class, 'upsert'])
+        ->name('parties.npc-trade-offer.upsert');
+    Route::post('/parties/{party}/npc-trade-offer/open', [PartyNpcTradeOfferController::class, 'open'])
+        ->name('parties.npc-trade-offer.open');
+    Route::post('/parties/{party}/npc-trade-offer/close', [PartyNpcTradeOfferController::class, 'close'])
+        ->name('parties.npc-trade-offer.close');
+    Route::post('/parties/{party}/npc-trade-offer/claim', [PartyNpcTradeOfferController::class, 'claim'])
+        ->name('parties.npc-trade-offer.claim');
+    Route::post('/parties/{party}/npc-trade-offer/release', [PartyNpcTradeOfferController::class, 'release'])
+        ->name('parties.npc-trade-offer.release');
+    Route::post('/parties/{party}/npc-trade-offer/buy', [PartyNpcTradeOfferController::class, 'buy'])
+        ->name('parties.npc-trade-offer.buy');
     Route::post('/parties/{party}/wallet-transactions', [PartyWalletTransactionController::class, 'store'])
         ->name('parties.wallet-transactions.store');
     Route::delete('/parties/{party}/inventory-items/{inventoryItem}', [PartyInventoryItemController::class, 'destroy'])

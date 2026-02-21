@@ -9,6 +9,7 @@ const props = defineProps({
     characters: { type: Array, default: () => [] },
     talentDefinitions: { type: Array, default: () => [] },
     talentRequests: { type: Array, default: () => [] },
+    npcTradeOffer: { type: Object, default: null },
 });
 
 const page = usePage();
@@ -38,6 +39,12 @@ const walletForm = ref({
     amountSilver: 0,
     amountCopper: 0,
     note: '',
+});
+const npcTradeBusy = ref(false);
+const npcTradeState = ref(props.npcTradeOffer ? { ...props.npcTradeOffer } : null);
+const npcTradeForm = ref({
+    name: props.npcTradeOffer?.name ?? '',
+    itemsText: '',
 });
 
 const inventoryPresetCategories = [
@@ -108,6 +115,17 @@ watch(() => props.characters, (next) => {
     if (!characterState.value.some((entry) => Number(entry.id) === Number(activeCharacterId.value))) {
         activeCharacterId.value = characterState.value[0]?.id ?? null;
     }
+}, { immediate: true });
+
+watch(() => props.npcTradeOffer, (nextOffer) => {
+    npcTradeState.value = nextOffer ? { ...nextOffer } : null;
+    npcTradeForm.value.name = nextOffer?.name ?? '';
+    npcTradeForm.value.itemsText = (nextOffer?.items ?? []).map((item) => {
+        const quantity = Number(item.quantity || 1);
+        const category = item.category || '';
+        const notes = item.notes || '';
+        return [item.name, quantity, category, notes].join(';');
+    }).join('\n');
 }, { immediate: true });
 
 const activeCharacter = computed(() => {
@@ -439,6 +457,94 @@ const formatCopper = (copperAmount) => {
     return `${coins.gold}G ${coins.silver}S ${coins.copper}K`;
 };
 
+const parseNpcItemsText = (text) => {
+    return String(text || '')
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0)
+        .map((line) => {
+            const [nameRaw, quantityRaw, categoryRaw, notesRaw] = line.split(';');
+            return {
+                name: String(nameRaw || '').trim(),
+                quantity: Math.max(1, Number(quantityRaw || 1) || 1),
+                category: String(categoryRaw || '').trim() || null,
+                notes: String(notesRaw || '').trim() || null,
+            };
+        })
+        .filter((item) => item.name.length > 0);
+};
+
+const onNpcTradeUpdated = (event) => {
+    if (Number(event.partyId) !== Number(props.party.id)) return;
+    npcTradeState.value = event.offer && Object.keys(event.offer).length ? event.offer : null;
+};
+
+const saveNpcTradeOffer = async () => {
+    if (npcTradeBusy.value) return;
+    const items = parseNpcItemsText(npcTradeForm.value.itemsText);
+    if (!npcTradeForm.value.name.trim() || !items.length) return;
+
+    npcTradeBusy.value = true;
+    try {
+        const response = await window.axios.post(route('parties.npc-trade-offer.upsert', props.party.id), {
+            name: npcTradeForm.value.name.trim(),
+            items,
+        });
+        if (response?.data?.offer) {
+            npcTradeState.value = response.data.offer;
+        }
+    } catch {
+        // handled by backend flash/validation
+    } finally {
+        npcTradeBusy.value = false;
+    }
+};
+
+const openNpcTradeOffer = async () => {
+    if (npcTradeBusy.value) return;
+    npcTradeBusy.value = true;
+    try {
+        const response = await window.axios.post(route('parties.npc-trade-offer.open', props.party.id));
+        if (response?.data?.offer) {
+            npcTradeState.value = response.data.offer;
+        }
+    } catch {
+        // handled by backend flash/validation
+    } finally {
+        npcTradeBusy.value = false;
+    }
+};
+
+const closeNpcTradeOffer = async () => {
+    if (npcTradeBusy.value) return;
+    npcTradeBusy.value = true;
+    try {
+        const response = await window.axios.post(route('parties.npc-trade-offer.close', props.party.id));
+        if (response?.data?.offer !== undefined) {
+            npcTradeState.value = response.data.offer;
+        }
+    } catch {
+        // handled by backend flash/validation
+    } finally {
+        npcTradeBusy.value = false;
+    }
+};
+
+const releaseNpcTradeSession = async () => {
+    if (npcTradeBusy.value) return;
+    npcTradeBusy.value = true;
+    try {
+        const response = await window.axios.post(route('parties.npc-trade-offer.release', props.party.id));
+        if (response?.data?.offer) {
+            npcTradeState.value = response.data.offer;
+        }
+    } catch {
+        // handled by backend flash/validation
+    } finally {
+        npcTradeBusy.value = false;
+    }
+};
+
 const submitWalletTransaction = async () => {
     if (!activeCharacter.value?.id || walletBusy.value) return;
     if (walletFormTotalCopper.value <= 0) return;
@@ -562,7 +668,8 @@ onMounted(() => {
         .listen('.party.talent-request.created', onRequestCreated)
         .listen('.party.talent-request.confirmed', onRequestConfirmed)
         .listen('.party.inventory-item.updated', onInventoryItemUpdated)
-        .listen('.party.wallet.updated', onWalletUpdated);
+        .listen('.party.wallet.updated', onWalletUpdated)
+        .listen('.party.npc-trade.updated', onNpcTradeUpdated);
 });
 
 onBeforeUnmount(() => {
@@ -769,6 +876,53 @@ onBeforeUnmount(() => {
                                             </svg>
                                         </span>
                                         <span>{{ activeWallet?.display ?? '0G 0S 0K' }}</span>
+                                    </div>
+                                </div>
+
+                                <div class="wallet-panel mb-4 p-3 p-md-4">
+                                    <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-3">
+                                        <div class="small text-uppercase text-muted eldoria-kicker-soft">NPC Handel</div>
+                                        <span class="badge" :class="npcTradeState?.isOpen ? 'text-bg-success' : 'text-bg-secondary'">
+                                            {{ npcTradeState?.isOpen ? 'Freigegeben' : 'Nicht freigegeben' }}
+                                        </span>
+                                    </div>
+                                    <div class="row g-2 mb-2">
+                                        <div class="col-12 col-md-4">
+                                            <label class="form-label small mb-1">NPC Name</label>
+                                            <input v-model="npcTradeForm.name" type="text" class="form-control form-control-sm" placeholder="z.B. Händler Borin">
+                                        </div>
+                                        <div class="col-12 col-md-8">
+                                            <label class="form-label small mb-1">Items (eine Zeile: Name;Menge;Kategorie;Notiz)</label>
+                                            <textarea
+                                                v-model="npcTradeForm.itemsText"
+                                                class="form-control form-control-sm"
+                                                rows="3"
+                                                placeholder="Heiltrank;2;Verbrauchbar;Selten"
+                                            ></textarea>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex gap-2 flex-wrap align-items-center">
+                                        <button type="button" class="btn btn-sm btn-outline-primary" :disabled="npcTradeBusy" @click="saveNpcTradeOffer">
+                                            Speichern
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-primary" :disabled="npcTradeBusy" @click="openNpcTradeOffer">
+                                            Zum Handeln freigeben
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-danger" :disabled="npcTradeBusy" @click="closeNpcTradeOffer">
+                                            Freigabe schließen
+                                        </button>
+                                        <button
+                                            v-if="npcTradeState?.activePartyCharacterId"
+                                            type="button"
+                                            class="btn btn-sm btn-outline-warning"
+                                            :disabled="npcTradeBusy"
+                                            @click="releaseNpcTradeSession"
+                                        >
+                                            Aktiven Handel freigeben
+                                        </button>
+                                        <span class="small text-muted" v-if="npcTradeState?.activeCharacterName">
+                                            Aktiver Handel mit: {{ npcTradeState.activeCharacterName }}
+                                        </span>
                                     </div>
                                 </div>
 

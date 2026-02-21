@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Party;
 use App\Models\PartyInvite;
+use App\Models\PartyNpcTradeOffer;
 use App\Models\PartyTradeSession;
 use App\Models\PartyTalentRequest;
 use App\Models\Race;
@@ -47,6 +48,7 @@ class PartyViewDataService
             'talentDefinitions' => $this->loadTalentDefinitions(),
             'talentRequests' => $this->loadTalentRequests($party, $userId),
             'tradeSessions' => $this->loadTradeSessions($party, $userId),
+            'npcTradeOffer' => $this->loadNpcTradeOffer($party),
         ];
     }
 
@@ -288,6 +290,37 @@ class PartyViewDataService
                 'acceptedAt' => optional($session->accepted_at)?->toIso8601String(),
             ])
             ->values();
+    }
+
+    private function loadNpcTradeOffer(Party $party): ?array
+    {
+        $offer = PartyNpcTradeOffer::query()
+            ->where('party_id', $party->id)
+            ->with(['activeCharacter.user:id,name'])
+            ->first();
+
+        if (! $offer) {
+            return null;
+        }
+
+        return [
+            'id' => (int) $offer->id,
+            'partyId' => (int) $offer->party_id,
+            'name' => $offer->name,
+            'isOpen' => (bool) $offer->is_open,
+            'items' => collect($offer->inventory_items ?? [])->map(fn ($item, $index) => [
+                'id' => (int) ($item['id'] ?? $index + 1),
+                'name' => (string) ($item['name'] ?? ''),
+                'quantity' => (int) ($item['quantity'] ?? 1),
+                'category' => $item['category'] ?? null,
+                'notes' => $item['notes'] ?? null,
+            ])->values()->all(),
+            'activePartyCharacterId' => $offer->active_party_character_id ? (int) $offer->active_party_character_id : null,
+            'activeCharacterUserId' => $offer->activeCharacter?->user_id ? (int) $offer->activeCharacter->user_id : null,
+            'activeCharacterName' => $offer->activeCharacter?->user?->name ?? $offer->activeCharacter?->name,
+            'openedAt' => optional($offer->opened_at)?->toIso8601String(),
+            'closedAt' => optional($offer->closed_at)?->toIso8601String(),
+        ];
     }
 
     private function mapWallet($wallet): array
