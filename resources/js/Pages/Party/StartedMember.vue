@@ -144,6 +144,10 @@ const tradePartnerCharacter = computed(() => {
 });
 
 const npcTradeIsOpen = computed(() => Boolean(npcTradeState.value?.isOpen));
+const npcTradeConfigured = computed(() => {
+    return Boolean(npcTradeState.value?.name)
+        && Number(npcTradeState.value?.items?.length ?? 0) > 0;
+});
 const npcTradeActiveBySelf = computed(() => Number(npcTradeState.value?.activePartyCharacterId ?? 0) === currentCharacterId.value);
 const npcTradeActiveByOther = computed(() => (
     Number(npcTradeState.value?.activePartyCharacterId ?? 0) > 0
@@ -767,6 +771,15 @@ onBeforeUnmount(() => {
                         <div class="d-flex align-items-center gap-2">
                             <button type="button" class="btn btn-sm btn-outline-primary" @click="tradePickerOpen = true">
                                 Handel starten
+                            </button>
+                            <button
+                                v-if="npcTradeConfigured"
+                                type="button"
+                                class="btn btn-sm btn-outline-primary"
+                                :disabled="npcTradeBusy || !npcTradeIsOpen || npcTradeActiveByOther"
+                                @click="npcTradeActiveBySelf ? (npcTradeModalOpen = true) : claimNpcTrade()"
+                            >
+                                {{ npcTradeActiveBySelf ? 'NPC Handel öffnen' : 'Mit NPC handeln' }}
                             </button>
                             <div class="wallet-bag-pill" title="Charakterbeutel" role="button" tabindex="0" @click="walletModalOpen = true">
                                 <span class="wallet-bag-icon" aria-hidden="true">
