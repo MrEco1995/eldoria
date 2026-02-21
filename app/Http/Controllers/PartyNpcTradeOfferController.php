@@ -26,6 +26,7 @@ class PartyNpcTradeOfferController extends Controller
         $this->assertOwner($party, (int) $user->id);
 
         $data = $request->validate([
+            'npc_trade_offer_id' => ['nullable', 'integer', Rule::exists('party_npc_trade_offers', 'id')->where('party_id', $party->id)],
             'name' => ['required', 'string', 'max:120'],
             'items' => ['required', 'array', 'min:1', 'max:150'],
             'items.*.name' => ['required', 'string', 'max:120'],
@@ -35,10 +36,15 @@ class PartyNpcTradeOfferController extends Controller
             'items.*.notes' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        $offer = PartyNpcTradeOffer::query()->firstOrCreate(
-            ['party_id' => $party->id],
-            ['created_by' => $user->id]
-        );
+        $offer = ! empty($data['npc_trade_offer_id'])
+            ? PartyNpcTradeOffer::query()
+                ->where('party_id', $party->id)
+                ->findOrFail((int) $data['npc_trade_offer_id'])
+            : PartyNpcTradeOffer::query()->create([
+                'party_id' => $party->id,
+                'created_by' => $user->id,
+                'is_open' => false,
+            ]);
 
         $offer->update([
             'name' => $data['name'],
@@ -60,10 +66,13 @@ class PartyNpcTradeOfferController extends Controller
         $user = $request->user();
         $this->assertOwner($party, (int) $user->id);
 
-        $offer = PartyNpcTradeOffer::query()->firstOrCreate(
-            ['party_id' => $party->id],
-            ['created_by' => $user->id]
-        );
+        $data = $request->validate([
+            'npc_trade_offer_id' => ['required', 'integer', Rule::exists('party_npc_trade_offers', 'id')->where('party_id', $party->id)],
+        ]);
+
+        $offer = PartyNpcTradeOffer::query()
+            ->where('party_id', $party->id)
+            ->findOrFail((int) $data['npc_trade_offer_id']);
 
         $items = $this->normalizeItemsForStorage((array) ($offer->inventory_items ?? []));
         if (empty($offer->name) || empty($items)) {
@@ -94,10 +103,13 @@ class PartyNpcTradeOfferController extends Controller
         $user = $request->user();
         $this->assertOwner($party, (int) $user->id);
 
-        $offer = PartyNpcTradeOffer::query()->where('party_id', $party->id)->first();
-        if (! $offer) {
-            return response()->json(['ok' => true, 'offer' => null]);
-        }
+        $data = $request->validate([
+            'npc_trade_offer_id' => ['required', 'integer', Rule::exists('party_npc_trade_offers', 'id')->where('party_id', $party->id)],
+        ]);
+
+        $offer = PartyNpcTradeOffer::query()
+            ->where('party_id', $party->id)
+            ->findOrFail((int) $data['npc_trade_offer_id']);
 
         $offer->update([
             'is_open' => false,
@@ -135,11 +147,15 @@ class PartyNpcTradeOfferController extends Controller
             ->where('user_id', $user->id)
             ->firstOrFail();
 
-        $offer = DB::transaction(function () use ($party, $character) {
+        $data = $request->validate([
+            'npc_trade_offer_id' => ['required', 'integer', Rule::exists('party_npc_trade_offers', 'id')->where('party_id', $party->id)],
+        ]);
+
+        $offer = DB::transaction(function () use ($party, $character, $data) {
             $entry = PartyNpcTradeOffer::query()
                 ->where('party_id', $party->id)
                 ->lockForUpdate()
-                ->firstOrFail();
+                ->findOrFail((int) $data['npc_trade_offer_id']);
 
             abort_unless($entry->is_open, 422, 'NPC ist nicht zum Handeln freigegeben.');
 
@@ -174,7 +190,13 @@ class PartyNpcTradeOfferController extends Controller
             ->where('user_id', $user->id)
             ->first();
 
-        $offer = PartyNpcTradeOffer::query()->where('party_id', $party->id)->firstOrFail();
+        $data = $request->validate([
+            'npc_trade_offer_id' => ['required', 'integer', Rule::exists('party_npc_trade_offers', 'id')->where('party_id', $party->id)],
+        ]);
+
+        $offer = PartyNpcTradeOffer::query()
+            ->where('party_id', $party->id)
+            ->findOrFail((int) $data['npc_trade_offer_id']);
 
         $isOwner = (int) $party->owner_id === (int) $user->id;
         $isActiveCharacter = $character && (int) $offer->active_party_character_id === (int) $character->id;
@@ -217,6 +239,7 @@ class PartyNpcTradeOfferController extends Controller
             ->firstOrFail();
 
         $data = $request->validate([
+            'npc_trade_offer_id' => ['required', 'integer', Rule::exists('party_npc_trade_offers', 'id')->where('party_id', $party->id)],
             'item_id' => ['required', 'integer', 'min:1'],
             'quantity' => ['required', 'integer', 'min:1', 'max:999'],
         ]);
@@ -225,7 +248,7 @@ class PartyNpcTradeOfferController extends Controller
             $offer = PartyNpcTradeOffer::query()
                 ->where('party_id', $party->id)
                 ->lockForUpdate()
-                ->firstOrFail();
+                ->findOrFail((int) $data['npc_trade_offer_id']);
 
             abort_unless($offer->is_open, 422, 'NPC ist nicht zum Handeln freigegeben.');
             abort_unless((int) $offer->active_party_character_id === (int) $character->id, 403, 'Du handelst gerade nicht mit diesem NPC.');
@@ -320,6 +343,7 @@ class PartyNpcTradeOfferController extends Controller
             ->firstOrFail();
 
         $data = $request->validate([
+            'npc_trade_offer_id' => ['required', 'integer', Rule::exists('party_npc_trade_offers', 'id')->where('party_id', $party->id)],
             'inventory_item_id' => ['required', 'integer', Rule::exists('inventory_items', 'id')],
             'quantity' => ['required', 'integer', 'min:1', 'max:999'],
             'amount_copper' => ['required', 'integer', 'min:1', 'max:100000000'],
@@ -329,7 +353,7 @@ class PartyNpcTradeOfferController extends Controller
             $npcTradeOffer = PartyNpcTradeOffer::query()
                 ->where('party_id', $party->id)
                 ->lockForUpdate()
-                ->firstOrFail();
+                ->findOrFail((int) $data['npc_trade_offer_id']);
 
             abort_unless($npcTradeOffer->is_open, 422, 'NPC ist nicht zum Handeln freigegeben.');
             abort_unless((int) $npcTradeOffer->active_party_character_id === (int) $character->id, 403, 'Du handelst gerade nicht mit diesem NPC.');
@@ -406,15 +430,14 @@ class PartyNpcTradeOfferController extends Controller
         ]);
 
         $result = DB::transaction(function () use ($party, $sellOffer, $data, $user): array {
+            $lockedSellOffer = PartyNpcTradeSellOffer::query()
+                ->lockForUpdate()
+                ->findOrFail($sellOffer->id);
+
             $npcTradeOffer = PartyNpcTradeOffer::query()
                 ->where('party_id', $party->id)
                 ->lockForUpdate()
-                ->firstOrFail();
-
-            $lockedSellOffer = PartyNpcTradeSellOffer::query()
-                ->where('party_npc_trade_offer_id', $npcTradeOffer->id)
-                ->lockForUpdate()
-                ->findOrFail($sellOffer->id);
+                ->findOrFail((int) $lockedSellOffer->party_npc_trade_offer_id);
 
             if ($lockedSellOffer->status !== PartyNpcTradeSellOffer::STATUS_PENDING) {
                 abort(422, 'Dieses Angebot wurde bereits bearbeitet.');

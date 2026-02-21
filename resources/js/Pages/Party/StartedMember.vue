@@ -11,7 +11,7 @@ const props = defineProps({
     talentDefinitions: { type: Array, default: () => [] },
     talentRequests: { type: Array, default: () => [] },
     tradeSessions: { type: Array, default: () => [] },
-    npcTradeOffer: { type: Object, default: null },
+    npcTradeOffers: { type: Array, default: () => [] },
 });
 
 const requestState = ref([...(props.talentRequests ?? [])]);
@@ -35,7 +35,8 @@ const npcSellForm = ref({
     amountSilver: 0,
     amountCopper: 1,
 });
-const npcTradeState = ref(props.npcTradeOffer ? { ...props.npcTradeOffer } : null);
+const npcTradeStateList = ref([...(props.npcTradeOffers ?? [])]);
+const selectedNpcTradeOfferId = ref(props.npcTradeOffers?.[0]?.id ?? null);
 const tradePickerOpen = ref(false);
 const tradeBusy = ref(false);
 const activeTradeModalOpen = ref(false);
@@ -69,9 +70,22 @@ watch(() => props.tradeSessions, (next) => {
     tradeSessionState.value = [...(next ?? [])];
 }, { immediate: true });
 
-watch(() => props.npcTradeOffer, (nextOffer) => {
-    npcTradeState.value = nextOffer ? { ...nextOffer } : null;
+watch(() => props.npcTradeOffers, (nextOffers) => {
+    npcTradeStateList.value = [...(nextOffers ?? [])];
+    if (!selectedNpcTradeOfferId.value && npcTradeStateList.value.length) {
+        selectedNpcTradeOfferId.value = npcTradeStateList.value[0].id;
+    }
+    if (
+        selectedNpcTradeOfferId.value
+        && !npcTradeStateList.value.some((entry) => Number(entry.id) === Number(selectedNpcTradeOfferId.value))
+    ) {
+        selectedNpcTradeOfferId.value = npcTradeStateList.value[0]?.id ?? null;
+    }
 }, { immediate: true });
+
+const npcTradeState = computed(() => {
+    return npcTradeStateList.value.find((entry) => Number(entry.id) === Number(selectedNpcTradeOfferId.value)) ?? null;
+});
 
 const getTalentValue = (key) => Number(props.character?.talents?.[key] ?? 0);
 
@@ -154,6 +168,10 @@ const npcTradeIsOpen = computed(() => Boolean(npcTradeState.value?.isOpen));
 const npcTradeConfigured = computed(() => {
     return Boolean(npcTradeState.value?.name)
         && Number(npcTradeState.value?.items?.length ?? 0) > 0;
+});
+const npcTradeMerchants = computed(() => npcTradeStateList.value ?? []);
+const hasAnyNpcTradeConfigured = computed(() => {
+    return npcTradeMerchants.value.some((entry) => Boolean(entry?.name) && Number(entry?.items?.length ?? 0) > 0);
 });
 const npcTradeActiveBySelf = computed(() => Number(npcTradeState.value?.activePartyCharacterId ?? 0) === currentCharacterId.value);
 const npcTradeActiveByOther = computed(() => (
@@ -370,16 +388,30 @@ const onWalletUpdated = (event) => {
 
 const onNpcTradeUpdated = (event) => {
     if (Number(event.partyId) !== Number(props.party.id)) return;
-    npcTradeState.value = event.offer && Object.keys(event.offer).length ? event.offer : null;
+    if (!event.offer || !Object.keys(event.offer).length) return;
+    const next = [...(npcTradeStateList.value ?? [])];
+    const index = next.findIndex((entry) => Number(entry.id) === Number(event.offer.id));
+    if (index >= 0) {
+        next[index] = event.offer;
+    } else {
+        next.unshift(event.offer);
+    }
+    npcTradeStateList.value = next;
+    if (!selectedNpcTradeOfferId.value) {
+        selectedNpcTradeOfferId.value = Number(event.offer.id);
+    }
 };
 
 const claimNpcTrade = async () => {
     if (npcTradeBusy.value || !npcTradeIsOpen.value || npcTradeActiveByOther.value) return;
+    if (!selectedNpcTradeOfferId.value) return;
     npcTradeBusy.value = true;
     try {
-        const response = await window.axios.post(route('parties.npc-trade-offer.claim', props.party.id));
+        const response = await window.axios.post(route('parties.npc-trade-offer.claim', props.party.id), {
+            npc_trade_offer_id: Number(selectedNpcTradeOfferId.value),
+        });
         if (response?.data?.offer) {
-            npcTradeState.value = response.data.offer;
+            onNpcTradeUpdated({ partyId: props.party.id, offer: response.data.offer });
             npcTradeModalOpen.value = true;
         }
     } catch {
@@ -391,11 +423,14 @@ const claimNpcTrade = async () => {
 
 const releaseNpcTrade = async () => {
     if (npcTradeBusy.value || !npcTradeActiveBySelf.value) return;
+    if (!selectedNpcTradeOfferId.value) return;
     npcTradeBusy.value = true;
     try {
-        const response = await window.axios.post(route('parties.npc-trade-offer.release', props.party.id));
+        const response = await window.axios.post(route('parties.npc-trade-offer.release', props.party.id), {
+            npc_trade_offer_id: Number(selectedNpcTradeOfferId.value),
+        });
         if (response?.data?.offer) {
-            npcTradeState.value = response.data.offer;
+            onNpcTradeUpdated({ partyId: props.party.id, offer: response.data.offer });
             npcTradeModalOpen.value = false;
         }
     } catch {
@@ -413,6 +448,7 @@ const npcBuyQuantityFor = (itemId) => {
 
 const buyNpcItem = async (item) => {
     if (npcTradeBusy.value || !item?.id) return;
+    if (!selectedNpcTradeOfferId.value) return;
 
     const quantity = Math.max(1, npcBuyQuantityFor(item.id));
     if (quantity > Number(item.quantity || 0)) return;
@@ -420,12 +456,13 @@ const buyNpcItem = async (item) => {
     npcTradeBusy.value = true;
     try {
         const response = await window.axios.post(route('parties.npc-trade-offer.buy', props.party.id), {
+            npc_trade_offer_id: Number(selectedNpcTradeOfferId.value),
             item_id: Number(item.id),
             quantity,
         });
 
         if (response?.data?.offer) {
-            npcTradeState.value = response.data.offer;
+            onNpcTradeUpdated({ partyId: props.party.id, offer: response.data.offer });
         }
 
         if (response?.data?.inventoryItem) {
@@ -448,16 +485,18 @@ const hasEnoughForNpcItem = (item) => {
 
 const submitNpcSellOffer = async () => {
     if (npcTradeBusy.value || !npcTradeActiveBySelf.value) return;
+    if (!selectedNpcTradeOfferId.value) return;
     if (!npcSellForm.value.inventoryItemId || npcSellAmountCopper.value <= 0) return;
     npcTradeBusy.value = true;
     try {
         const response = await window.axios.post(route('parties.npc-trade-offer.sell-offers.store', props.party.id), {
+            npc_trade_offer_id: Number(selectedNpcTradeOfferId.value),
             inventory_item_id: Number(npcSellForm.value.inventoryItemId),
             quantity: Math.max(1, Number(npcSellForm.value.quantity || 1)),
             amount_copper: npcSellAmountCopper.value,
         });
         if (response?.data?.offer) {
-            npcTradeState.value = response.data.offer;
+            onNpcTradeUpdated({ partyId: props.party.id, offer: response.data.offer });
             npcSellForm.value.quantity = 1;
             npcSellForm.value.amountGold = 0;
             npcSellForm.value.amountSilver = 0;
@@ -854,10 +893,10 @@ onBeforeUnmount(() => {
                                 Handel starten
                             </button>
                             <button
-                                v-if="npcTradeConfigured"
+                                v-if="hasAnyNpcTradeConfigured"
                                 type="button"
                                 class="btn btn-sm btn-outline-primary"
-                                :disabled="npcTradeBusy || !npcTradeIsOpen || npcTradeActiveByOther"
+                                :disabled="npcTradeBusy || !npcTradeConfigured || !npcTradeIsOpen || npcTradeActiveByOther"
                                 @click="npcTradeActiveBySelf ? (npcTradeModalOpen = true) : claimNpcTrade()"
                             >
                                 {{ npcTradeActiveBySelf ? 'NPC Handel öffnen' : 'Mit NPC handeln' }}
@@ -898,33 +937,47 @@ onBeforeUnmount(() => {
                         </button>
                     </div>
 
-                    <div class="alert py-2 px-3 small mb-3" :class="npcTradeIsOpen ? 'alert-success' : 'alert-secondary'">
-                        <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap">
-                            <span>
-                                NPC Handel:
-                                <strong>{{ npcTradeState?.name || 'Kein NPC konfiguriert' }}</strong>
-                                <span v-if="npcTradeActiveByOther" class="text-muted">
-                                    · belegt durch {{ npcTradeState?.activeCharacterName || 'anderen Spieler' }}
+                    <div v-if="!npcTradeMerchants.length" class="alert alert-secondary py-2 px-3 small mb-3">
+                        NPC Handel: Kein NPC konfiguriert
+                    </div>
+                    <div v-else class="d-flex flex-column gap-2 mb-3">
+                        <div class="small text-uppercase text-muted">NPC Händler</div>
+                        <div
+                            v-for="merchant in npcTradeMerchants"
+                            :key="`member-merchant-${merchant.id}`"
+                            class="alert py-2 px-3 small mb-0"
+                            :class="Number(selectedNpcTradeOfferId) === Number(merchant.id) ? 'alert-primary' : (merchant.isOpen ? 'alert-success' : 'alert-secondary')"
+                        >
+                            <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap">
+                                <span>
+                                    <strong>{{ merchant.name || `Händler ${merchant.id}` }}</strong>
+                                    <span class="text-muted"> · {{ merchant.isOpen ? 'freigegeben' : 'nicht freigegeben' }}</span>
+                                    <span v-if="merchant.activePartyCharacterId && Number(merchant.activePartyCharacterId) !== currentCharacterId" class="text-muted">
+                                        · belegt durch {{ merchant.activeCharacterName || 'anderen Spieler' }}
+                                    </span>
                                 </span>
-                            </span>
-                            <div class="d-flex gap-2">
-                                <button
-                                    v-if="npcTradeIsOpen && !npcTradeActiveByOther && !npcTradeActiveBySelf"
-                                    type="button"
-                                    class="btn btn-sm btn-primary"
-                                    :disabled="npcTradeBusy"
-                                    @click="claimNpcTrade"
-                                >
-                                    Mit NPC handeln
-                                </button>
-                                <button
-                                    v-if="npcTradeActiveBySelf"
-                                    type="button"
-                                    class="btn btn-sm btn-outline-success"
-                                    @click="npcTradeModalOpen = true"
-                                >
-                                    NPC Handel öffnen
-                                </button>
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" @click="selectedNpcTradeOfferId = merchant.id">
+                                        Auswählen
+                                    </button>
+                                    <button
+                                        v-if="merchant.isOpen && Number(merchant.activePartyCharacterId || 0) === 0"
+                                        type="button"
+                                        class="btn btn-sm btn-primary"
+                                        :disabled="npcTradeBusy"
+                                        @click="selectedNpcTradeOfferId = merchant.id; claimNpcTrade()"
+                                    >
+                                        Mit NPC handeln
+                                    </button>
+                                    <button
+                                        v-if="Number(merchant.activePartyCharacterId || 0) === currentCharacterId"
+                                        type="button"
+                                        class="btn btn-sm btn-outline-success"
+                                        @click="selectedNpcTradeOfferId = merchant.id; npcTradeModalOpen = true"
+                                    >
+                                        NPC Handel öffnen
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1202,16 +1255,6 @@ onBeforeUnmount(() => {
                                             @click="useItem(item)"
                                         >
                                             Nutzen
-                                        </button>
-                                        <button
-                                            v-else
-                                            type="button"
-                                            class="btn btn-sm btn-outline-danger ms-1"
-                                            title="Verkaufen"
-                                            aria-label="Verkaufen"
-                                            @click="trySellItem(item)"
-                                        >
-                                            <i class="fa-solid fa-coins"></i>
                                         </button>
                                     </div>
                                 </div>

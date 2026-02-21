@@ -49,7 +49,7 @@ class PartyViewDataService
             'talentDefinitions' => $this->loadTalentDefinitions(),
             'talentRequests' => $this->loadTalentRequests($party, $userId),
             'tradeSessions' => $this->loadTradeSessions($party, $userId),
-            'npcTradeOffer' => $this->loadNpcTradeOffer($party),
+            'npcTradeOffers' => $this->loadNpcTradeOffers($party),
         ];
     }
 
@@ -293,9 +293,9 @@ class PartyViewDataService
             ->values();
     }
 
-    private function loadNpcTradeOffer(Party $party): ?array
+    private function loadNpcTradeOffers(Party $party): array
     {
-        $offer = PartyNpcTradeOffer::query()
+        return PartyNpcTradeOffer::query()
             ->where('party_id', $party->id)
             ->with([
                 'activeCharacter.user:id,name',
@@ -308,13 +308,9 @@ class PartyViewDataService
                     ])
                     ->limit(100),
             ])
-            ->first();
-
-        if (! $offer) {
-            return null;
-        }
-
-        return [
+            ->orderByDesc('id')
+            ->get()
+            ->map(fn ($offer) => [
             'id' => (int) $offer->id,
             'partyId' => (int) $offer->party_id,
             'name' => $offer->name,
@@ -353,7 +349,9 @@ class PartyViewDataService
             'activeCharacterName' => $offer->activeCharacter?->user?->name ?? $offer->activeCharacter?->name,
             'openedAt' => optional($offer->opened_at)?->toIso8601String(),
             'closedAt' => optional($offer->closed_at)?->toIso8601String(),
-        ];
+            ])
+            ->values()
+            ->all();
     }
 
     private function mapWallet($wallet): array

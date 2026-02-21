@@ -7,7 +7,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Party extends Model
 {
@@ -48,8 +47,8 @@ class Party extends Model
         return $this->hasMany(PartyTradeSession::class);
     }
 
-    public function npcTradeOffer(): HasOne
+    public function npcTradeOffers(): HasMany
     {
-        return $this->hasOne(PartyNpcTradeOffer::class);
+        return $this->hasMany(PartyNpcTradeOffer::class);
     }
 }
