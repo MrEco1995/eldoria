@@ -45,7 +45,11 @@ const npcTradeBusy = ref(false);
 const npcTradeState = ref(props.npcTradeOffer ? { ...props.npcTradeOffer } : null);
 const npcTradeForm = ref({
     name: props.npcTradeOffer?.name ?? '',
-    itemsText: '',
+    category: '',
+    itemName: '',
+    quantity: 1,
+    notes: '',
+    items: [],
 });
 
 const inventoryPresetCategories = [
@@ -124,12 +128,13 @@ watch(() => props.characters, (next) => {
 watch(() => props.npcTradeOffer, (nextOffer) => {
     npcTradeState.value = nextOffer ? { ...nextOffer } : null;
     npcTradeForm.value.name = nextOffer?.name ?? '';
-    npcTradeForm.value.itemsText = (nextOffer?.items ?? []).map((item) => {
-        const quantity = Number(item.quantity || 1);
-        const category = item.category || '';
-        const notes = item.notes || '';
-        return [item.name, quantity, category, notes].join(';');
-    }).join('\n');
+    npcTradeForm.value.items = (nextOffer?.items ?? []).map((item) => ({
+        id: Number(item.id || Date.now()),
+        name: String(item.name || ''),
+        quantity: Math.max(1, Number(item.quantity || 1)),
+        category: item.category || null,
+        notes: item.notes || null,
+    }));
 }, { immediate: true });
 
 const activeCharacter = computed(() => {
@@ -463,21 +468,73 @@ const formatCopper = (copperAmount) => {
     return `${coins.gold}G ${coins.silver}S ${coins.copper}K`;
 };
 
-const parseNpcItemsText = (text) => {
-    return String(text || '')
-        .split('\n')
-        .map((line) => line.trim())
-        .filter((line) => line.length > 0)
-        .map((line) => {
-            const [nameRaw, quantityRaw, categoryRaw, notesRaw] = line.split(';');
-            return {
-                name: String(nameRaw || '').trim(),
-                quantity: Math.max(1, Number(quantityRaw || 1) || 1),
-                category: String(categoryRaw || '').trim() || null,
-                notes: String(notesRaw || '').trim() || null,
-            };
-        })
-        .filter((item) => item.name.length > 0);
+const setNpcTradeCategory = (category) => {
+    npcTradeForm.value.category = category;
+};
+
+const addNpcTradeItemLocal = ({ name, quantity = 1, category = null, notes = null }) => {
+    const normalizedName = String(name || '').trim();
+    if (!normalizedName) return;
+
+    const normalizedCategory = category ? String(category).trim() : null;
+    const normalizedNotes = notes ? String(notes).trim() : null;
+    const addQuantity = Math.max(1, Number(quantity || 1));
+
+    const items = [...(npcTradeForm.value.items ?? [])];
+    const existingIndex = items.findIndex((entry) => (
+        String(entry.name).toLowerCase() === normalizedName.toLowerCase()
+        && String(entry.category || '') === String(normalizedCategory || '')
+    ));
+
+    if (existingIndex >= 0) {
+        items[existingIndex].quantity = Math.min(999, Number(items[existingIndex].quantity || 0) + addQuantity);
+        if (!items[existingIndex].notes && normalizedNotes) {
+            items[existingIndex].notes = normalizedNotes;
+        }
+    } else {
+        items.push({
+            id: Date.now() + Math.floor(Math.random() * 1000),
+            name: normalizedName,
+            quantity: Math.min(999, addQuantity),
+            category: normalizedCategory,
+            notes: normalizedNotes,
+        });
+    }
+
+    npcTradeForm.value.items = items;
+};
+
+const quickAddNpcPresetItem = (presetItem, category) => {
+    addNpcTradeItemLocal({
+        name: presetItem.name,
+        quantity: Number(presetItem.quantity || 1),
+        category,
+        notes: null,
+    });
+};
+
+const addNpcTradeItem = () => {
+    addNpcTradeItemLocal({
+        name: npcTradeForm.value.itemName,
+        quantity: Number(npcTradeForm.value.quantity || 1),
+        category: npcTradeForm.value.category || null,
+        notes: npcTradeForm.value.notes || null,
+    });
+    npcTradeForm.value.itemName = '';
+    npcTradeForm.value.quantity = 1;
+    npcTradeForm.value.notes = '';
+};
+
+const updateNpcTradeItemQuantity = (index, delta) => {
+    const items = [...(npcTradeForm.value.items ?? [])];
+    if (!items[index]) return;
+    const nextQuantity = Math.max(1, Number(items[index].quantity || 1) + delta);
+    items[index].quantity = Math.min(999, nextQuantity);
+    npcTradeForm.value.items = items;
+};
+
+const removeNpcTradeItem = (index) => {
+    npcTradeForm.value.items = (npcTradeForm.value.items ?? []).filter((_, entryIndex) => entryIndex !== index);
 };
 
 const onNpcTradeUpdated = (event) => {
@@ -487,7 +544,14 @@ const onNpcTradeUpdated = (event) => {
 
 const saveNpcTradeOffer = async () => {
     if (npcTradeBusy.value) return;
-    const items = parseNpcItemsText(npcTradeForm.value.itemsText);
+    const items = (npcTradeForm.value.items ?? [])
+        .map((item) => ({
+            name: String(item.name || '').trim(),
+            quantity: Math.max(1, Number(item.quantity || 1)),
+            category: item.category || null,
+            notes: item.notes || null,
+        }))
+        .filter((item) => item.name.length > 0);
     if (!npcTradeForm.value.name.trim() || !items.length) return;
 
     npcTradeBusy.value = true;
@@ -738,13 +802,83 @@ onBeforeUnmount(() => {
                                         <input v-model="npcTradeForm.name" type="text" class="form-control form-control-sm" placeholder="z.B. Händler Borin">
                                     </div>
                                     <div class="col-12 col-md-8">
-                                        <label class="form-label small mb-1">Items (eine Zeile: Name;Menge;Kategorie;Notiz)</label>
-                                        <textarea
-                                            v-model="npcTradeForm.itemsText"
-                                            class="form-control form-control-sm"
-                                            rows="4"
-                                            placeholder="Heiltrank;2;Verbrauchbar;Selten"
-                                        ></textarea>
+                                        <label class="form-label small mb-1">Kategorien</label>
+                                        <div class="d-flex flex-wrap gap-2">
+                                            <button
+                                                v-for="category in inventoryPresetCategories"
+                                                :key="`npc-category-${category}`"
+                                                type="button"
+                                                class="btn btn-sm"
+                                                :class="npcTradeForm.category === category ? 'btn-primary' : 'btn-outline-secondary'"
+                                                @click="setNpcTradeCategory(category)"
+                                            >
+                                                {{ category }}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label small mb-1">Schnellauswahl</label>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        <button
+                                            v-for="(presetItem, idx) in (inventoryPresetItemsByCategory[npcTradeForm.category] ?? [])"
+                                            :key="`npc-preset-${npcTradeForm.category}-${presetItem.name}-${idx}`"
+                                            type="button"
+                                            class="btn btn-sm btn-outline-primary"
+                                            @click="quickAddNpcPresetItem(presetItem, npcTradeForm.category)"
+                                        >
+                                            + {{ presetItem.name }} <span class="opacity-75">x{{ presetItem.quantity }}</span>
+                                        </button>
+                                        <span
+                                            v-if="!(inventoryPresetItemsByCategory[npcTradeForm.category] ?? []).length"
+                                            class="text-muted small"
+                                        >
+                                            Wähle oben eine Kategorie für Vorschläge.
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="row g-2 mb-3">
+                                    <div class="col-12 col-md-4">
+                                        <input v-model="npcTradeForm.itemName" type="text" class="form-control form-control-sm" placeholder="Itemname">
+                                    </div>
+                                    <div class="col-6 col-md-2">
+                                        <input v-model.number="npcTradeForm.quantity" type="number" min="1" max="999" class="form-control form-control-sm" placeholder="Menge">
+                                    </div>
+                                    <div class="col-6 col-md-3">
+                                        <input v-model="npcTradeForm.category" type="text" class="form-control form-control-sm" placeholder="Kategorie">
+                                    </div>
+                                    <div class="col-12 col-md-3">
+                                        <button type="button" class="btn btn-sm btn-primary w-100" @click="addNpcTradeItem">
+                                            Item hinzufügen
+                                        </button>
+                                    </div>
+                                    <div class="col-12">
+                                        <input v-model="npcTradeForm.notes" type="text" class="form-control form-control-sm" placeholder="Notiz (optional)">
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <div v-if="!(npcTradeForm.items ?? []).length" class="text-muted small">
+                                        Noch keine NPC-Items hinzugefügt.
+                                    </div>
+                                    <div v-else class="d-flex flex-column gap-2">
+                                        <div
+                                            v-for="(item, index) in (npcTradeForm.items ?? [])"
+                                            :key="`npc-config-item-${item.id}-${index}`"
+                                            class="wallet-transaction-row d-flex justify-content-between align-items-start gap-2"
+                                        >
+                                            <div>
+                                                <div class="small fw-semibold">{{ item.name }}</div>
+                                                <div class="small text-muted">
+                                                    {{ item.category || 'Allgemein' }}<span v-if="item.notes"> · {{ item.notes }}</span>
+                                                </div>
+                                            </div>
+                                            <div class="d-flex align-items-center gap-1">
+                                                <button type="button" class="btn btn-sm btn-outline-secondary" @click="updateNpcTradeItemQuantity(index, -1)">-</button>
+                                                <span class="px-2 small fw-semibold">{{ item.quantity }}</span>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary" @click="updateNpcTradeItemQuantity(index, 1)">+</button>
+                                                <button type="button" class="btn btn-sm btn-outline-danger ms-1" @click="removeNpcTradeItem(index)">x</button>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="d-flex gap-2 flex-wrap align-items-center">
