@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Party;
 use App\Models\PartyInvite;
+use App\Models\PartyTradeSession;
 use App\Models\PartyTalentRequest;
 use App\Models\Race;
 use App\Models\Talent;
@@ -45,6 +46,7 @@ class PartyViewDataService
             'characters' => $this->loadCharacterPayloads($party)->values(),
             'talentDefinitions' => $this->loadTalentDefinitions(),
             'talentRequests' => $this->loadTalentRequests($party, $userId),
+            'tradeSessions' => $this->loadTradeSessions($party, $userId),
         ];
     }
 
@@ -253,6 +255,38 @@ class PartyViewDataService
                     'confirmedAt' => optional($request->confirmed_at)?->toIso8601String(),
                 ];
             })
+            ->values();
+    }
+
+    private function loadTradeSessions(Party $party, int $userId): Collection
+    {
+        return PartyTradeSession::query()
+            ->where('party_id', $party->id)
+            ->whereIn('status', [PartyTradeSession::STATUS_PENDING, PartyTradeSession::STATUS_ACTIVE])
+            ->where(function ($query) use ($userId) {
+                $query->whereHas('initiatorCharacter', fn ($characterQuery) => $characterQuery->where('user_id', $userId))
+                    ->orWhereHas('counterpartyCharacter', fn ($characterQuery) => $characterQuery->where('user_id', $userId));
+            })
+            ->with([
+                'initiatorCharacter.user:id,name',
+                'counterpartyCharacter.user:id,name',
+            ])
+            ->orderByDesc('id')
+            ->limit(50)
+            ->get()
+            ->map(fn ($session) => [
+                'id' => (int) $session->id,
+                'partyId' => (int) $session->party_id,
+                'initiatorPartyCharacterId' => (int) $session->initiator_party_character_id,
+                'counterpartyPartyCharacterId' => (int) $session->counterparty_party_character_id,
+                'initiatorUserId' => (int) $session->initiatorCharacter->user_id,
+                'counterpartyUserId' => (int) $session->counterpartyCharacter->user_id,
+                'initiatorName' => $session->initiatorCharacter->user?->name ?? $session->initiatorCharacter->name,
+                'counterpartyName' => $session->counterpartyCharacter->user?->name ?? $session->counterpartyCharacter->name,
+                'status' => $session->status,
+                'createdAt' => optional($session->created_at)?->toIso8601String(),
+                'acceptedAt' => optional($session->accepted_at)?->toIso8601String(),
+            ])
             ->values();
     }
 

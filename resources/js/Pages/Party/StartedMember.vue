@@ -7,8 +7,10 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 const props = defineProps({
     party: { type: Object, required: true },
     character: { type: Object, required: true },
+    characters: { type: Array, default: () => [] },
     talentDefinitions: { type: Array, default: () => [] },
     talentRequests: { type: Array, default: () => [] },
+    tradeSessions: { type: Array, default: () => [] },
 });
 
 const requestState = ref([...(props.talentRequests ?? [])]);
@@ -22,6 +24,11 @@ const unseenInventoryItemIds = ref({});
 const inventoryBusy = ref(false);
 const inventoryActionHint = ref('');
 const walletModalOpen = ref(false);
+const tradePickerOpen = ref(false);
+const tradeBusy = ref(false);
+const activeTradeModalOpen = ref(false);
+const selectedTradeTargetCharacterId = ref(null);
+const tradeSessionState = ref([...(props.tradeSessions ?? [])]);
 
 const raceImageBaseMap = {
     Menschen: 'Mensch',
@@ -44,6 +51,10 @@ watch(() => props.talentRequests, (next) => {
 
 watch(() => props.character?.inventoryItems, (next) => {
     inventoryItems.value = [...(next ?? [])];
+}, { immediate: true });
+
+watch(() => props.tradeSessions, (next) => {
+    tradeSessionState.value = [...(next ?? [])];
 }, { immediate: true });
 
 const getTalentValue = (key) => Number(props.character?.talents?.[key] ?? 0);
@@ -79,6 +90,49 @@ const walletTypeBadges = {
 const walletState = ref({ ...(props.character?.wallet ?? { transactions: [] }) });
 const wallet = computed(() => walletState.value ?? null);
 const walletTransactions = ref([...(walletState.value?.transactions ?? [])]);
+const currentCharacterId = computed(() => Number(props.character?.id ?? 0));
+const allCharacters = computed(() => props.characters ?? []);
+
+const availableTradeTargets = computed(() => {
+    return allCharacters.value.filter((entry) => Number(entry.id) !== currentCharacterId.value);
+});
+
+const incomingPendingTrades = computed(() => {
+    return tradeSessionState.value.filter((session) => (
+        session.status === 'pending'
+        && Number(session.counterpartyPartyCharacterId) === currentCharacterId.value
+    ));
+});
+
+const outgoingPendingTrades = computed(() => {
+    return tradeSessionState.value.filter((session) => (
+        session.status === 'pending'
+        && Number(session.initiatorPartyCharacterId) === currentCharacterId.value
+    ));
+});
+
+const activeTrade = computed(() => {
+    return tradeSessionState.value.find((session) => (
+        session.status === 'active'
+        && (
+            Number(session.initiatorPartyCharacterId) === currentCharacterId.value
+            || Number(session.counterpartyPartyCharacterId) === currentCharacterId.value
+        )
+    )) ?? null;
+});
+
+const tradePartnerCharacterId = computed(() => {
+    if (!activeTrade.value) return null;
+    if (Number(activeTrade.value.initiatorPartyCharacterId) === currentCharacterId.value) {
+        return Number(activeTrade.value.counterpartyPartyCharacterId);
+    }
+    return Number(activeTrade.value.initiatorPartyCharacterId);
+});
+
+const tradePartnerCharacter = computed(() => {
+    if (!tradePartnerCharacterId.value) return null;
+    return allCharacters.value.find((entry) => Number(entry.id) === tradePartnerCharacterId.value) ?? null;
+});
 
 const normalizeWalletType = (type) => {
     return ['grant', 'transfer_in', 'in'].includes(String(type)) ? 'in' : 'out';
@@ -87,6 +141,16 @@ const normalizeWalletType = (type) => {
 watch(() => props.character?.wallet, (nextWallet) => {
     walletState.value = { ...(nextWallet ?? { transactions: [] }) };
     walletTransactions.value = [...(nextWallet?.transactions ?? [])];
+}, { immediate: true });
+
+watch(availableTradeTargets, (targets) => {
+    if (!targets.length) {
+        selectedTradeTargetCharacterId.value = null;
+        return;
+    }
+    if (!selectedTradeTargetCharacterId.value || !targets.some((entry) => Number(entry.id) === Number(selectedTradeTargetCharacterId.value))) {
+        selectedTradeTargetCharacterId.value = Number(targets[0].id);
+    }
 }, { immediate: true });
 
 const racePreviewSources = computed(() => {
@@ -230,6 +294,72 @@ const onWalletUpdated = (event) => {
         }
     } else {
         walletTransactions.value = [...(event.wallet.transactions ?? walletTransactions.value)];
+    }
+};
+
+const upsertTradeSession = (trade) => {
+    if (!trade?.id) return;
+    const idx = tradeSessionState.value.findIndex((entry) => Number(entry.id) === Number(trade.id));
+    if (idx >= 0) {
+        tradeSessionState.value[idx] = trade;
+    } else {
+        tradeSessionState.value.unshift(trade);
+    }
+};
+
+const onTradeRequested = (event) => {
+    if (Number(event.partyId) !== Number(props.party.id) || !event.trade) return;
+    const selfId = currentCharacterId.value;
+    const involvesSelf = Number(event.trade.initiatorPartyCharacterId) === selfId
+        || Number(event.trade.counterpartyPartyCharacterId) === selfId;
+    if (!involvesSelf) return;
+    upsertTradeSession(event.trade);
+};
+
+const onTradeAccepted = (event) => {
+    if (Number(event.partyId) !== Number(props.party.id) || !event.trade) return;
+    const selfId = currentCharacterId.value;
+    const involvesSelf = Number(event.trade.initiatorPartyCharacterId) === selfId
+        || Number(event.trade.counterpartyPartyCharacterId) === selfId;
+    if (!involvesSelf) return;
+    upsertTradeSession(event.trade);
+    activeTradeModalOpen.value = true;
+};
+
+const startTrade = async () => {
+    if (!selectedTradeTargetCharacterId.value || tradeBusy.value) return;
+    tradeBusy.value = true;
+    try {
+        const response = await window.axios.post(route('parties.trades.store', props.party.id), {
+            counterparty_party_character_id: Number(selectedTradeTargetCharacterId.value),
+        });
+        if (response?.data?.trade) {
+            upsertTradeSession(response.data.trade);
+            tradePickerOpen.value = false;
+        }
+    } catch {
+        // handled by backend flash/validation
+    } finally {
+        tradeBusy.value = false;
+    }
+};
+
+const acceptTrade = async (trade) => {
+    if (!trade?.id || tradeBusy.value) return;
+    tradeBusy.value = true;
+    try {
+        const response = await window.axios.post(route('parties.trades.accept', {
+            party: props.party.id,
+            tradeSession: trade.id,
+        }));
+        if (response?.data?.trade) {
+            upsertTradeSession(response.data.trade);
+            activeTradeModalOpen.value = true;
+        }
+    } catch {
+        // handled by backend flash/validation
+    } finally {
+        tradeBusy.value = false;
     }
 };
 
@@ -378,7 +508,9 @@ onMounted(() => {
         .listen('.party.talent-request.created', onRequestCreated)
         .listen('.party.talent-request.confirmed', onRequestConfirmed)
         .listen('.party.inventory-item.updated', onInventoryItemUpdated)
-        .listen('.party.wallet.updated', onWalletUpdated);
+        .listen('.party.wallet.updated', onWalletUpdated)
+        .listen('.party.trade.requested', onTradeRequested)
+        .listen('.party.trade.accepted', onTradeAccepted);
 });
 
 onBeforeUnmount(() => {
@@ -543,26 +675,67 @@ onBeforeUnmount(() => {
                     <div class="text-uppercase small text-muted mb-2 eldoria-kicker">Inventar</div>
                     <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap mb-3">
                         <h3 class="h5 mb-0 eldoria-title">Reiseausrüstung von {{ character.name }}</h3>
-                        <div class="wallet-bag-pill" title="Charakterbeutel" role="button" tabindex="0" @click="walletModalOpen = true">
-                            <span class="wallet-bag-icon" aria-hidden="true">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                                    <path d="M10.1 2h3.8l.5 2.2h-4.8L10.1 2zm-3 4.2h9.8c2.7 0 5 2.2 5 5v6.2c0 2.5-2 4.6-4.6 4.6H6.7c-2.5 0-4.6-2-4.6-4.6v-6.2c0-2.8 2.2-5 5-5zm1.2 4.1c0 .7.5 1.2 1.2 1.2h5c.7 0 1.2-.6 1.2-1.2s-.5-1.2-1.2-1.2h-5c-.7 0-1.2.5-1.2 1.2z"/>
-                                </svg>
-                            </span>
-                            <span>{{ wallet?.display ?? '0G 0S 0K' }}</span>
+                        <div class="d-flex align-items-center gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-primary" @click="tradePickerOpen = true">
+                                Handel starten
+                            </button>
+                            <div class="wallet-bag-pill" title="Charakterbeutel" role="button" tabindex="0" @click="walletModalOpen = true">
+                                <span class="wallet-bag-icon" aria-hidden="true">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M10.1 2h3.8l.5 2.2h-4.8L10.1 2zm-3 4.2h9.8c2.7 0 5 2.2 5 5v6.2c0 2.5-2 4.6-4.6 4.6H6.7c-2.5 0-4.6-2-4.6-4.6v-6.2c0-2.8 2.2-5 5-5zm1.2 4.1c0 .7.5 1.2 1.2 1.2h5c.7 0 1.2-.6 1.2-1.2s-.5-1.2-1.2-1.2h-5c-.7 0-1.2.5-1.2 1.2z"/>
+                                    </svg>
+                                </span>
+                                <span>{{ wallet?.display ?? '0G 0S 0K' }}</span>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="wallet-panel mb-4 p-3 p-md-4">
-                        <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-3">
-                            <div class="small text-uppercase text-muted eldoria-kicker-soft">Wallet</div>
-                            <div class="small text-muted">1G = 10S = 100K</div>
+                    <div v-if="incomingPendingTrades.length" class="alert alert-warning py-2 px-3 small mb-3">
+                        <div
+                            v-for="trade in incomingPendingTrades"
+                            :key="`incoming-${trade.id}`"
+                            class="d-flex justify-content-between align-items-center gap-2 flex-wrap"
+                        >
+                            <span>Handelsanfrage von {{ trade.initiatorName }}</span>
+                            <button type="button" class="btn btn-sm btn-primary" :disabled="tradeBusy" @click="acceptTrade(trade)">
+                                Annehmen
+                            </button>
                         </div>
-                        <div class="small text-muted mb-3">
-                            Transaktionen sind nur im Handel mit einem anderen Spieler möglich.
-                        </div>
-                        <div class="d-flex justify-content-end">
-                            <span class="small text-muted">Klicke auf die Wallet oben, um Transaktionen zu öffnen.</span>
+                    </div>
+
+                    <div v-if="outgoingPendingTrades.length" class="alert alert-info py-2 px-3 small mb-3">
+                        Wartet auf Annahme:
+                        {{ outgoingPendingTrades.map((trade) => trade.counterpartyName).join(', ') }}
+                    </div>
+
+                    <div v-if="activeTrade" class="alert alert-success py-2 px-3 small mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <span>Aktiver Handel mit {{ tradePartnerCharacter?.user?.name ?? tradePartnerCharacter?.name ?? 'Partner' }}</span>
+                        <button type="button" class="btn btn-sm btn-outline-success" @click="activeTradeModalOpen = true">
+                            Handel öffnen
+                        </button>
+                    </div>
+
+                    <div v-if="tradePickerOpen" class="wallet-modal-backdrop" @click.self="tradePickerOpen = false">
+                        <div class="wallet-modal-card">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h4 class="h6 mb-0">Handel starten</h4>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" @click="tradePickerOpen = false">
+                                    Schließen
+                                </button>
+                            </div>
+                            <div v-if="!availableTradeTargets.length" class="text-muted small">
+                                Kein Handelspartner verfügbar.
+                            </div>
+                            <div v-else class="d-flex flex-column gap-3">
+                                <select v-model="selectedTradeTargetCharacterId" class="form-select">
+                                    <option v-for="entry in availableTradeTargets" :key="entry.id" :value="entry.id">
+                                        {{ entry.user?.name ?? entry.name }}
+                                    </option>
+                                </select>
+                                <button type="button" class="btn btn-primary" :disabled="tradeBusy" @click="startTrade">
+                                    Anfrage senden
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -594,6 +767,46 @@ onBeforeUnmount(() => {
                                     <span class="badge" :class="walletTypeBadges[normalizeWalletType(tx.type)] || 'text-bg-secondary'">
                                         {{ normalizeWalletType(tx.type).toUpperCase() }}
                                     </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div v-if="activeTradeModalOpen && activeTrade" class="wallet-modal-backdrop" @click.self="activeTradeModalOpen = false">
+                        <div class="trade-modal-card">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h4 class="h6 mb-0">Aktiver Handel</h4>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" @click="activeTradeModalOpen = false">
+                                    Schließen
+                                </button>
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-12 col-lg-6">
+                                    <div class="trade-column p-3 h-100">
+                                        <div class="fw-semibold mb-2">Du: {{ character.name }}</div>
+                                        <div class="small text-muted mb-2">Wallet: {{ wallet?.display ?? '0G 0S 0K' }}</div>
+                                        <div class="small text-uppercase text-muted mb-2">Dein Inventar</div>
+                                        <div v-if="inventoryItems.length === 0" class="small text-muted">Leer</div>
+                                        <ul v-else class="small mb-0 ps-3">
+                                            <li v-for="item in inventoryItems" :key="`self-trade-${item.id}`">
+                                                {{ item.name }} x{{ item.quantity }}
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-lg-6">
+                                    <div class="trade-column p-3 h-100">
+                                        <div class="fw-semibold mb-2">
+                                            {{ tradePartnerCharacter?.name ?? 'Handelspartner' }}
+                                        </div>
+                                        <div class="small text-uppercase text-muted mb-2">Inventar Partner</div>
+                                        <div v-if="!(tradePartnerCharacter?.inventoryItems ?? []).length" class="small text-muted">Leer</div>
+                                        <ul v-else class="small mb-0 ps-3">
+                                            <li v-for="item in (tradePartnerCharacter?.inventoryItems ?? [])" :key="`partner-trade-${item.id}`">
+                                                {{ item.name }} x{{ item.quantity }}
+                                            </li>
+                                        </ul>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -857,6 +1070,22 @@ onBeforeUnmount(() => {
     border: 1px solid rgba(110, 74, 35, 0.35);
     border-radius: 12px;
     padding: 1rem;
+}
+
+.trade-modal-card {
+    width: min(980px, 100%);
+    max-height: 84vh;
+    overflow: auto;
+    background: #fff8ee;
+    border: 1px solid rgba(110, 74, 35, 0.35);
+    border-radius: 12px;
+    padding: 1rem;
+}
+
+.trade-column {
+    border-radius: 10px;
+    border: 1px solid rgba(110, 74, 35, 0.25);
+    background: rgba(255, 250, 241, 0.86);
 }
 
 .inventory-note-icon {

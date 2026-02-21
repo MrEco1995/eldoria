@@ -56,4 +56,14 @@ class PartyCharacter extends Model
     {
         return $this->hasOne(CharacterWallet::class, 'party_character_id');
     }
+
+    public function initiatedTradeSessions(): HasMany
+    {
+        return $this->hasMany(PartyTradeSession::class, 'initiator_party_character_id');
+    }
+
+    public function counterpartyTradeSessions(): HasMany
+    {
+        return $this->hasMany(PartyTradeSession::class, 'counterparty_party_character_id');
+    }
 }

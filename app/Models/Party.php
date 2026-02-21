@@ -41,4 +41,9 @@ class Party extends Model
     {
         return $this->hasMany(PartyCharacter::class);
     }
+
+    public function tradeSessions(): HasMany
+    {
+        return $this->hasMany(PartyTradeSession::class);
+    }
 }
