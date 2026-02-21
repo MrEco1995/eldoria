@@ -98,6 +98,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('parties.npc-trade-offer.release');
     Route::post('/parties/{party}/npc-trade-offer/buy', [PartyNpcTradeOfferController::class, 'buy'])
         ->name('parties.npc-trade-offer.buy');
+    Route::post('/parties/{party}/npc-trade-offer/sell-offers', [PartyNpcTradeOfferController::class, 'storeSellOffer'])
+        ->name('parties.npc-trade-offer.sell-offers.store');
+    Route::post('/parties/{party}/npc-trade-offer/sell-offers/{sellOffer}/resolve', [PartyNpcTradeOfferController::class, 'resolveSellOffer'])
+        ->name('parties.npc-trade-offer.sell-offers.resolve');
     Route::post('/parties/{party}/wallet-transactions', [PartyWalletTransactionController::class, 'store'])
         ->name('parties.wallet-transactions.store');
     Route::delete('/parties/{party}/inventory-items/{inventoryItem}', [PartyInventoryItemController::class, 'destroy'])

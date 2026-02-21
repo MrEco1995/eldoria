@@ -28,6 +28,13 @@ const walletModalOpen = ref(false);
 const npcTradeModalOpen = ref(false);
 const npcTradeBusy = ref(false);
 const npcBuyQuantityByItemId = ref({});
+const npcSellForm = ref({
+    inventoryItemId: null,
+    quantity: 1,
+    amountGold: 0,
+    amountSilver: 0,
+    amountCopper: 1,
+});
 const npcTradeState = ref(props.npcTradeOffer ? { ...props.npcTradeOffer } : null);
 const tradePickerOpen = ref(false);
 const tradeBusy = ref(false);
@@ -153,9 +160,43 @@ const npcTradeActiveByOther = computed(() => (
     Number(npcTradeState.value?.activePartyCharacterId ?? 0) > 0
     && Number(npcTradeState.value?.activePartyCharacterId ?? 0) !== currentCharacterId.value
 ));
+const ownPendingNpcSellOffers = computed(() => {
+    return (npcTradeState.value?.sellOffers ?? []).filter((entry) => (
+        Number(entry.partyCharacterId) === currentCharacterId.value
+        && entry.status === 'pending'
+    ));
+});
+const ownLastRejectedNpcSellOfferByInventoryItemId = computed(() => {
+    const map = {};
+    (npcTradeState.value?.sellOffers ?? []).forEach((entry) => {
+        if (Number(entry.partyCharacterId) !== currentCharacterId.value || entry.status !== 'rejected') return;
+        const key = String(entry.inventoryItemId);
+        if (!map[key] || Number(entry.id) > Number(map[key].id)) {
+            map[key] = entry;
+        }
+    });
+    return map;
+});
+const npcSellableInventoryItems = computed(() => {
+    return inventoryItems.value.filter((entry) => Number(entry.quantity || 0) > 0);
+});
+const npcSellAmountCopper = computed(() => {
+    const gold = Math.max(0, Number(npcSellForm.value.amountGold || 0));
+    const silver = Math.max(0, Number(npcSellForm.value.amountSilver || 0));
+    const copper = Math.max(0, Number(npcSellForm.value.amountCopper || 0));
+    return (gold * 100) + (silver * 10) + copper;
+});
 
 const normalizeWalletType = (type) => {
     return ['grant', 'transfer_in', 'in'].includes(String(type)) ? 'in' : 'out';
+};
+
+const formatCopper = (amountCopper) => {
+    const normalized = Math.max(0, Number(amountCopper || 0));
+    const gold = Math.floor(normalized / 100);
+    const silver = Math.floor((normalized % 100) / 10);
+    const copper = normalized % 10;
+    return `${gold}G ${silver}S ${copper}K`;
 };
 
 watch(() => props.character?.wallet, (nextWallet) => {
@@ -170,6 +211,16 @@ watch(availableTradeTargets, (targets) => {
     }
     if (!selectedTradeTargetCharacterId.value || !targets.some((entry) => Number(entry.id) === Number(selectedTradeTargetCharacterId.value))) {
         selectedTradeTargetCharacterId.value = Number(targets[0].id);
+    }
+}, { immediate: true });
+
+watch(npcSellableInventoryItems, (items) => {
+    if (!items.length) {
+        npcSellForm.value.inventoryItemId = null;
+        return;
+    }
+    if (!npcSellForm.value.inventoryItemId || !items.some((entry) => Number(entry.id) === Number(npcSellForm.value.inventoryItemId))) {
+        npcSellForm.value.inventoryItemId = Number(items[0].id);
     }
 }, { immediate: true });
 
@@ -382,6 +433,36 @@ const buyNpcItem = async (item) => {
         }
 
         npcBuyQuantityByItemId.value[String(item.id)] = 1;
+    } catch {
+        // handled by backend flash/validation
+    } finally {
+        npcTradeBusy.value = false;
+    }
+};
+
+const hasEnoughForNpcItem = (item) => {
+    const quantity = Math.max(1, npcBuyQuantityFor(item.id));
+    const totalPrice = quantity * Math.max(0, Number(item.priceCopper || 0));
+    return Number(wallet.value?.copperBalance || 0) >= totalPrice;
+};
+
+const submitNpcSellOffer = async () => {
+    if (npcTradeBusy.value || !npcTradeActiveBySelf.value) return;
+    if (!npcSellForm.value.inventoryItemId || npcSellAmountCopper.value <= 0) return;
+    npcTradeBusy.value = true;
+    try {
+        const response = await window.axios.post(route('parties.npc-trade-offer.sell-offers.store', props.party.id), {
+            inventory_item_id: Number(npcSellForm.value.inventoryItemId),
+            quantity: Math.max(1, Number(npcSellForm.value.quantity || 1)),
+            amount_copper: npcSellAmountCopper.value,
+        });
+        if (response?.data?.offer) {
+            npcTradeState.value = response.data.offer;
+            npcSellForm.value.quantity = 1;
+            npcSellForm.value.amountGold = 0;
+            npcSellForm.value.amountSilver = 0;
+            npcSellForm.value.amountCopper = 1;
+        }
     } catch {
         // handled by backend flash/validation
     } finally {
@@ -970,6 +1051,52 @@ onBeforeUnmount(() => {
                                                 {{ item.name }} x{{ item.quantity }}
                                             </li>
                                         </ul>
+                                        <hr class="my-3">
+                                        <div class="small text-uppercase text-muted mb-2">Item an NPC verkaufen</div>
+                                        <div v-if="!npcSellableInventoryItems.length" class="small text-muted">Kein Item zum Verkaufen.</div>
+                                        <div v-else class="row g-2">
+                                            <div class="col-12">
+                                                <select v-model="npcSellForm.inventoryItemId" class="form-select form-select-sm">
+                                                    <option v-for="entry in npcSellableInventoryItems" :key="`npc-sell-item-${entry.id}`" :value="entry.id">
+                                                        {{ entry.name }} x{{ entry.quantity }}
+                                                    </option>
+                                                </select>
+                                            </div>
+                                            <div class="col-4">
+                                                <input v-model.number="npcSellForm.quantity" type="number" min="1" class="form-control form-control-sm" placeholder="Menge">
+                                            </div>
+                                            <div class="col-8 d-flex gap-1">
+                                                <input v-model.number="npcSellForm.amountGold" type="number" min="0" class="form-control form-control-sm" placeholder="G">
+                                                <input v-model.number="npcSellForm.amountSilver" type="number" min="0" class="form-control form-control-sm" placeholder="S">
+                                                <input v-model.number="npcSellForm.amountCopper" type="number" min="0" class="form-control form-control-sm" placeholder="K">
+                                            </div>
+                                            <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                                <span class="small text-muted">Angebot: {{ formatCopper(npcSellAmountCopper) }}</span>
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-sm btn-outline-primary"
+                                                    :disabled="npcTradeBusy || npcSellAmountCopper <= 0 || !npcSellForm.inventoryItemId"
+                                                    @click="submitNpcSellOffer"
+                                                >
+                                                    Verkauf anbieten
+                                                </button>
+                                            </div>
+                                            <div
+                                                v-if="ownLastRejectedNpcSellOfferByInventoryItemId[String(npcSellForm.inventoryItemId)]"
+                                                class="col-12 small text-warning"
+                                            >
+                                                Letztes Angebot wurde abgelehnt:
+                                                {{ ownLastRejectedNpcSellOfferByInventoryItemId[String(npcSellForm.inventoryItemId)].amountDisplay }}.
+                                                Neuer Wert muss darunter liegen.
+                                            </div>
+                                        </div>
+                                        <div class="small text-uppercase text-muted mb-2 mt-3">Offene Verkaufsangebote</div>
+                                        <div v-if="!ownPendingNpcSellOffers.length" class="small text-muted">Keine offenen Angebote.</div>
+                                        <ul v-else class="small mb-0 ps-3">
+                                            <li v-for="offer in ownPendingNpcSellOffers" :key="`own-pending-sell-${offer.id}`">
+                                                {{ offer.itemName }} x{{ offer.quantity }} · {{ offer.amountDisplay }} (wartet auf Spielleiter)
+                                            </li>
+                                        </ul>
                                     </div>
                                 </div>
                                 <div class="col-12 col-lg-6">
@@ -978,13 +1105,13 @@ onBeforeUnmount(() => {
                                         <div class="small text-uppercase text-muted mb-2">NPC Inventar</div>
                                         <div v-if="!(npcTradeState.items ?? []).length" class="small text-muted">Leer</div>
                                         <div v-else class="d-flex flex-column gap-2">
-                                            <div
-                                                v-for="item in (npcTradeState.items ?? [])"
-                                                :key="`npc-item-${item.id}`"
-                                                class="d-flex justify-content-between align-items-center gap-2 border rounded p-2 bg-white"
-                                            >
+                                                <div
+                                                    v-for="item in (npcTradeState.items ?? [])"
+                                                    :key="`npc-item-${item.id}`"
+                                                    class="d-flex justify-content-between align-items-center gap-2 border rounded p-2 bg-white"
+                                                >
                                                 <div class="small">
-                                                    <div class="fw-semibold">{{ item.name }} x{{ item.quantity }}</div>
+                                                    <div class="fw-semibold">{{ item.name }} x{{ item.quantity }} · {{ item.priceDisplay }}</div>
                                                     <div class="text-muted">
                                                         {{ item.category || 'Allgemein' }}<span v-if="item.notes"> · {{ item.notes }}</span>
                                                     </div>
@@ -1002,7 +1129,7 @@ onBeforeUnmount(() => {
                                                     <button
                                                         type="button"
                                                         class="btn btn-sm btn-primary"
-                                                        :disabled="npcTradeBusy || npcBuyQuantityFor(item.id) > item.quantity"
+                                                        :disabled="npcTradeBusy || npcBuyQuantityFor(item.id) > item.quantity || !hasEnoughForNpcItem(item)"
                                                         @click="buyNpcItem(item)"
                                                     >
                                                         Kaufen

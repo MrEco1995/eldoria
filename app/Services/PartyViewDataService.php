@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Party;
 use App\Models\PartyInvite;
 use App\Models\PartyNpcTradeOffer;
+use App\Models\PartyNpcTradeSellOffer;
 use App\Models\PartyTradeSession;
 use App\Models\PartyTalentRequest;
 use App\Models\Race;
@@ -296,7 +297,17 @@ class PartyViewDataService
     {
         $offer = PartyNpcTradeOffer::query()
             ->where('party_id', $party->id)
-            ->with(['activeCharacter.user:id,name'])
+            ->with([
+                'activeCharacter.user:id,name',
+                'sellOffers' => fn ($query) => $query
+                    ->with(['character.user:id,name', 'createdByUser:id,name', 'resolvedByUser:id,name'])
+                    ->whereIn('status', [
+                        PartyNpcTradeSellOffer::STATUS_PENDING,
+                        PartyNpcTradeSellOffer::STATUS_ACCEPTED,
+                        PartyNpcTradeSellOffer::STATUS_REJECTED,
+                    ])
+                    ->limit(100),
+            ])
             ->first();
 
         if (! $offer) {
@@ -312,9 +323,31 @@ class PartyViewDataService
                 'id' => (int) ($item['id'] ?? $index + 1),
                 'name' => (string) ($item['name'] ?? ''),
                 'quantity' => (int) ($item['quantity'] ?? 1),
+                'priceCopper' => (int) ($item['price_copper'] ?? 0),
+                'priceDisplay' => $this->formatCopper((int) ($item['price_copper'] ?? 0)),
                 'category' => $item['category'] ?? null,
                 'notes' => $item['notes'] ?? null,
             ])->values()->all(),
+            'sellOffers' => $offer->sellOffers->map(function ($sellOffer) {
+                return [
+                    'id' => (int) $sellOffer->id,
+                    'partyCharacterId' => (int) $sellOffer->party_character_id,
+                    'partyCharacterName' => $sellOffer->character?->user?->name ?? $sellOffer->character?->name,
+                    'inventoryItemId' => (int) $sellOffer->inventory_item_id,
+                    'itemName' => $sellOffer->item_snapshot['name'] ?? null,
+                    'itemCategory' => $sellOffer->item_snapshot['category'] ?? null,
+                    'quantity' => (int) $sellOffer->quantity,
+                    'amountCopper' => (int) $sellOffer->amount_copper,
+                    'amountDisplay' => $this->formatCopper((int) $sellOffer->amount_copper),
+                    'status' => $sellOffer->status,
+                    'createdByUserId' => $sellOffer->created_by_user_id ? (int) $sellOffer->created_by_user_id : null,
+                    'createdByUserName' => $sellOffer->createdByUser?->name,
+                    'resolvedByUserId' => $sellOffer->resolved_by_user_id ? (int) $sellOffer->resolved_by_user_id : null,
+                    'resolvedByUserName' => $sellOffer->resolvedByUser?->name,
+                    'resolvedAt' => optional($sellOffer->resolved_at)?->toIso8601String(),
+                    'createdAt' => optional($sellOffer->created_at)?->toIso8601String(),
+                ];
+            })->values()->all(),
             'activePartyCharacterId' => $offer->active_party_character_id ? (int) $offer->active_party_character_id : null,
             'activeCharacterUserId' => $offer->activeCharacter?->user_id ? (int) $offer->activeCharacter->user_id : null,
             'activeCharacterName' => $offer->activeCharacter?->user?->name ?? $offer->activeCharacter?->name,
@@ -359,5 +392,12 @@ class PartyViewDataService
             'silver' => intdiv($copperAmount % 100, 10),
             'copper' => $copperAmount % 10,
         ];
+    }
+
+    private function formatCopper(int $copperAmount): string
+    {
+        $coins = $this->splitCopper($copperAmount);
+
+        return sprintf('%dG %dS %dK', $coins['gold'], $coins['silver'], $coins['copper']);
     }
 }
