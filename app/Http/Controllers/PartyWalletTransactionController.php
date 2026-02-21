@@ -23,10 +23,12 @@ class PartyWalletTransactionController extends Controller
         $data = $request->validate([
             'party_character_id' => ['required', 'integer', Rule::exists('party_characters', 'id')->where('party_id', $party->id)],
             'type' => ['required', Rule::in([
-                WalletTransaction::TYPE_GRANT,
-                WalletTransaction::TYPE_SPEND,
-                WalletTransaction::TYPE_TRANSFER_IN,
-                WalletTransaction::TYPE_TRANSFER_OUT,
+                WalletTransaction::TYPE_IN,
+                WalletTransaction::TYPE_OUT,
+                'grant',
+                'spend',
+                'transfer_in',
+                'transfer_out',
             ])],
             'amount_copper' => ['nullable', 'integer', 'min:0', 'max:100000000'],
             'amount_gold' => ['nullable', 'integer', 'min:0', 'max:1000000'],
@@ -37,14 +39,16 @@ class PartyWalletTransactionController extends Controller
         $amountCopper = $this->resolveAmountCopper($data);
         if ($amountCopper <= 0) {
             throw ValidationException::withMessages([
-                'amount_copper' => ['Bitte einen Betrag größer als 0 angeben.'],
+                'amount_copper' => ['Bitte einen Betrag groesser als 0 angeben.'],
             ]);
         }
 
-        $character = PartyCharacter::query()->where('party_id', $party->id)->findOrFail($data['party_character_id']);
-        $this->assertCanCreateTransaction($party, (int) $user->id, (int) $character->user_id, $data['type']);
+        $type = $this->normalizeType((string) $data['type']);
 
-        $result = DB::transaction(function () use ($character, $user, $data, $amountCopper): array {
+        $character = PartyCharacter::query()->where('party_id', $party->id)->findOrFail($data['party_character_id']);
+        $this->assertCanCreateTransaction($party, (int) $user->id);
+
+        $result = DB::transaction(function () use ($character, $user, $data, $amountCopper, $type): array {
             $wallet = CharacterWallet::query()
                 ->where('party_character_id', $character->id)
                 ->lockForUpdate()
@@ -57,7 +61,7 @@ class PartyWalletTransactionController extends Controller
                 ]);
             }
 
-            $isIncoming = in_array($data['type'], [WalletTransaction::TYPE_GRANT, WalletTransaction::TYPE_TRANSFER_IN], true);
+            $isIncoming = $type === WalletTransaction::TYPE_IN;
             $delta = $isIncoming ? $amountCopper : -$amountCopper;
             $nextBalance = (int) $wallet->copper_balance + $delta;
 
@@ -74,7 +78,7 @@ class PartyWalletTransactionController extends Controller
             $transaction = WalletTransaction::create([
                 'wallet_id' => $wallet->id,
                 'actor_user_id' => $user->id,
-                'type' => $data['type'],
+                'type' => $type,
                 'amount_copper' => $amountCopper,
                 'note' => $data['note'] ?? null,
             ]);
@@ -106,16 +110,9 @@ class PartyWalletTransactionController extends Controller
         ], 201);
     }
 
-    private function assertCanCreateTransaction(Party $party, int $actorUserId, int $characterUserId, string $type): void
+    private function assertCanCreateTransaction(Party $party, int $actorUserId): void
     {
-        $isOwner = (int) $party->owner_id === $actorUserId;
-        if ($isOwner) {
-            return;
-        }
-
-        $isOwnCharacter = $actorUserId === $characterUserId;
-        $allowedTypesForMember = [WalletTransaction::TYPE_SPEND, WalletTransaction::TYPE_TRANSFER_OUT];
-        abort_unless($isOwnCharacter && in_array($type, $allowedTypesForMember, true), 403);
+        abort_unless((int) $party->owner_id === $actorUserId, 403, 'Wallet-Transaktionen sind nur im Handel erlaubt.');
     }
 
     private function toWalletPayload(CharacterWallet $wallet): array
@@ -170,5 +167,14 @@ class PartyWalletTransactionController extends Controller
         $silver = (int) ($data['amount_silver'] ?? 0);
 
         return ($gold * 100) + ($silver * 10);
+    }
+
+    private function normalizeType(string $type): string
+    {
+        if (in_array($type, ['grant', 'transfer_in', WalletTransaction::TYPE_IN], true)) {
+            return WalletTransaction::TYPE_IN;
+        }
+
+        return WalletTransaction::TYPE_OUT;
     }
 }

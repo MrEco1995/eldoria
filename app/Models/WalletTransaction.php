@@ -10,10 +10,8 @@ class WalletTransaction extends Model
 {
     use HasFactory;
 
-    public const TYPE_GRANT = 'grant';
-    public const TYPE_SPEND = 'spend';
-    public const TYPE_TRANSFER_IN = 'transfer_in';
-    public const TYPE_TRANSFER_OUT = 'transfer_out';
+    public const TYPE_IN = 'in';
+    public const TYPE_OUT = 'out';
 
     protected $fillable = [
         'wallet_id',

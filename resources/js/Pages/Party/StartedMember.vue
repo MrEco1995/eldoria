@@ -21,10 +21,7 @@ const noteEditorOpenByItemId = ref({});
 const unseenInventoryItemIds = ref({});
 const inventoryBusy = ref(false);
 const inventoryActionHint = ref('');
-const walletBusy = ref(false);
 const walletModalOpen = ref(false);
-const walletSpendCopper = ref(1);
-const walletSpendNote = ref('');
 
 const raceImageBaseMap = {
     Menschen: 'Mensch',
@@ -72,20 +69,20 @@ const hasUnseenInventoryItems = computed(() => {
     return Object.values(unseenInventoryItemIds.value).some((value) => value === true);
 });
 const walletTypeLabels = {
-    grant: 'Vergabe',
-    spend: 'Ausgabe',
-    transfer_in: 'Eingang',
-    transfer_out: 'Ausgang',
+    in: 'IN',
+    out: 'OUT',
 };
 const walletTypeBadges = {
-    grant: 'text-bg-success',
-    spend: 'text-bg-danger',
-    transfer_in: 'text-bg-success',
-    transfer_out: 'text-bg-danger',
+    in: 'text-bg-success',
+    out: 'text-bg-danger',
 };
 const walletState = ref({ ...(props.character?.wallet ?? { transactions: [] }) });
 const wallet = computed(() => walletState.value ?? null);
 const walletTransactions = ref([...(walletState.value?.transactions ?? [])]);
+
+const normalizeWalletType = (type) => {
+    return ['grant', 'transfer_in', 'in'].includes(String(type)) ? 'in' : 'out';
+};
 
 watch(() => props.character?.wallet, (nextWallet) => {
     walletState.value = { ...(nextWallet ?? { transactions: [] }) };
@@ -349,39 +346,6 @@ const trySellItem = (item) => {
     inventoryActionHint.value = 'Verkaufen ist nur beim Handeln mit jemandem möglich. Das Handelssystem folgt später.';
 };
 
-const spendFromWallet = async () => {
-    if (walletBusy.value) return;
-
-    walletBusy.value = true;
-    try {
-        const response = await window.axios.post(route('parties.wallet-transactions.store', props.party.id), {
-            party_character_id: props.character.id,
-            type: 'spend',
-            amount_copper: Number(walletSpendCopper.value || 0),
-            note: walletSpendNote.value?.trim() || null,
-        });
-
-        if (response?.data?.wallet) {
-            walletState.value = {
-                ...(walletState.value ?? {}),
-                ...response.data.wallet,
-                transactions: response.data.wallet.transactions ?? walletTransactions.value,
-            };
-        }
-
-        if (response?.data?.transaction) {
-            walletTransactions.value.unshift(response.data.transaction);
-        }
-
-        walletSpendCopper.value = 1;
-        walletSpendNote.value = '';
-    } catch {
-        // handled by backend flash/validation
-    } finally {
-        walletBusy.value = false;
-    }
-};
-
 const rollTalent = async (request, talent) => {
     if (!talent?.key || isRolled(talent)) return;
     const rollKey = makeRollKey(request.id, talent.key);
@@ -579,7 +543,7 @@ onBeforeUnmount(() => {
                     <div class="text-uppercase small text-muted mb-2 eldoria-kicker">Inventar</div>
                     <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap mb-3">
                         <h3 class="h5 mb-0 eldoria-title">Reiseausrüstung von {{ character.name }}</h3>
-                        <div class="wallet-bag-pill" title="Charakterbeutel">
+                        <div class="wallet-bag-pill" title="Charakterbeutel" role="button" tabindex="0" @click="walletModalOpen = true">
                             <span class="wallet-bag-icon" aria-hidden="true">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                                     <path d="M10.1 2h3.8l.5 2.2h-4.8L10.1 2zm-3 4.2h9.8c2.7 0 5 2.2 5 5v6.2c0 2.5-2 4.6-4.6 4.6H6.7c-2.5 0-4.6-2-4.6-4.6v-6.2c0-2.8 2.2-5 5-5zm1.2 4.1c0 .7.5 1.2 1.2 1.2h5c.7 0 1.2-.6 1.2-1.2s-.5-1.2-1.2-1.2h-5c-.7 0-1.2.5-1.2 1.2z"/>
@@ -594,25 +558,11 @@ onBeforeUnmount(() => {
                             <div class="small text-uppercase text-muted eldoria-kicker-soft">Wallet</div>
                             <div class="small text-muted">1G = 10S = 100K</div>
                         </div>
-                        <div class="row g-2 align-items-end mb-3">
-                            <div class="col-12 col-md-2">
-                                <label class="form-label small mb-1">Ausgeben (K)</label>
-                                <input v-model.number="walletSpendCopper" type="number" min="1" class="form-control form-control-sm">
-                            </div>
-                            <div class="col-12 col-md-8">
-                                <label class="form-label small mb-1">Notiz</label>
-                                <input v-model="walletSpendNote" type="text" class="form-control form-control-sm" placeholder="z.B. Händler in Eldoria">
-                            </div>
-                            <div class="col-12 col-md-2">
-                                <button type="button" class="btn btn-sm btn-outline-danger w-100" :disabled="walletBusy" @click="spendFromWallet">
-                                    Ausgeben
-                                </button>
-                            </div>
+                        <div class="small text-muted mb-3">
+                            Transaktionen sind nur im Handel mit einem anderen Spieler möglich.
                         </div>
                         <div class="d-flex justify-content-end">
-                            <button type="button" class="btn btn-sm btn-outline-secondary" @click="walletModalOpen = true">
-                                Transaktionen anzeigen
-                            </button>
+                            <span class="small text-muted">Klicke auf die Wallet oben, um Transaktionen zu öffnen.</span>
                         </div>
                     </div>
 
@@ -635,14 +585,14 @@ onBeforeUnmount(() => {
                                 >
                                     <div>
                                         <div class="small fw-semibold">
-                                            {{ walletTypeLabels[tx.type] || tx.type }} · {{ tx.amountDisplay }}
+                                            {{ walletTypeLabels[normalizeWalletType(tx.type)] || tx.type }} · {{ tx.amountDisplay }}
                                         </div>
                                         <div class="small text-muted">
                                             {{ tx.actorUserName || 'System' }}<span v-if="tx.note"> · {{ tx.note }}</span>
                                         </div>
                                     </div>
-                                    <span class="badge" :class="walletTypeBadges[tx.type] || 'text-bg-secondary'">
-                                        {{ tx.type }}
+                                    <span class="badge" :class="walletTypeBadges[normalizeWalletType(tx.type)] || 'text-bg-secondary'">
+                                        {{ normalizeWalletType(tx.type).toUpperCase() }}
                                     </span>
                                 </div>
                             </div>
@@ -868,6 +818,7 @@ onBeforeUnmount(() => {
     color: #5b3f1f;
     font-size: 0.85rem;
     font-weight: 600;
+    cursor: pointer;
 }
 
 .wallet-bag-icon {
