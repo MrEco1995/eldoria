@@ -63,6 +63,7 @@ class PartyInventoryItemController extends Controller
             'action' => 'upsert',
             'partyCharacterId' => $character->id,
             'item' => $this->toPayload($item),
+            'notify' => (int) $user->id !== (int) $character->user_id,
         ]);
 
         return response()->json([

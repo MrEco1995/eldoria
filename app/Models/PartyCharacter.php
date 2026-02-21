@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
 
 class PartyCharacter extends Model
@@ -49,5 +50,10 @@ class PartyCharacter extends Model
     public function inventoryItems(): HasMany
     {
         return $this->hasMany(InventoryItem::class, 'party_character_id')->orderBy('sort_order')->orderBy('id');
+    }
+
+    public function wallet(): HasOne
+    {
+        return $this->hasOne(CharacterWallet::class, 'party_character_id');
     }
 }

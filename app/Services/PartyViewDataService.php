@@ -63,6 +63,15 @@ class PartyViewDataService
             ->with('user:id,name')
             ->with('inventoryItems:id,party_character_id,name,quantity,category,notes,sort_order')
             ->with([
+                'wallet' => fn ($query) => $query
+                    ->select('id', 'party_character_id', 'copper_balance')
+                    ->with([
+                        'transactions' => fn ($transactionsQuery) => $transactionsQuery
+                            ->with('actor:id,name')
+                            ->orderByDesc('id'),
+                    ]),
+            ])
+            ->with([
                 'mediafiles' => fn ($query) => $query
                     ->wherePivot('role', 'character')
                     ->latest('mediafiles.id'),
@@ -98,6 +107,7 @@ class PartyViewDataService
                         'notes' => $item->notes,
                         'sortOrder' => (int) $item->sort_order,
                     ])->values()->all(),
+                    'wallet' => $this->mapWallet($entry->wallet),
                     'image_url' => $image ? route('media.public', ['path' => $image->path]) : null,
                 ];
             });
@@ -245,5 +255,42 @@ class PartyViewDataService
             })
             ->values();
     }
-}
 
+    private function mapWallet($wallet): array
+    {
+        $copperBalance = (int) ($wallet?->copper_balance ?? 0);
+        $coins = $this->splitCopper($copperBalance);
+
+        return [
+            'id' => $wallet?->id ? (int) $wallet->id : null,
+            'copperBalance' => $copperBalance,
+            'coins' => $coins,
+            'display' => sprintf('%dG %dS %dK', $coins['gold'], $coins['silver'], $coins['copper']),
+            'transactions' => collect($wallet?->transactions ?? [])->map(function ($transaction) {
+                $amountCopper = (int) $transaction->amount_copper;
+                $amountCoins = $this->splitCopper($amountCopper);
+
+                return [
+                    'id' => (int) $transaction->id,
+                    'walletId' => (int) $transaction->wallet_id,
+                    'actorUserId' => $transaction->actor_user_id ? (int) $transaction->actor_user_id : null,
+                    'actorUserName' => $transaction->actor?->name,
+                    'type' => $transaction->type,
+                    'amountCopper' => $amountCopper,
+                    'amountDisplay' => sprintf('%dG %dS %dK', $amountCoins['gold'], $amountCoins['silver'], $amountCoins['copper']),
+                    'note' => $transaction->note,
+                    'createdAt' => optional($transaction->created_at)?->toIso8601String(),
+                ];
+            })->values()->all(),
+        ];
+    }
+
+    private function splitCopper(int $copperAmount): array
+    {
+        return [
+            'gold' => intdiv($copperAmount, 100),
+            'silver' => intdiv($copperAmount % 100, 10),
+            'copper' => $copperAmount % 10,
+        ];
+    }
+}

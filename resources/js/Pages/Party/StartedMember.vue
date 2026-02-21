@@ -18,8 +18,13 @@ const usePreviewFallback = ref(false);
 const inventoryItems = ref([...(props.character?.inventoryItems ?? [])]);
 const noteDraftByItemId = ref({});
 const noteEditorOpenByItemId = ref({});
+const unseenInventoryItemIds = ref({});
 const inventoryBusy = ref(false);
 const inventoryActionHint = ref('');
+const walletBusy = ref(false);
+const walletModalOpen = ref(false);
+const walletSpendCopper = ref(1);
+const walletSpendNote = ref('');
 
 const raceImageBaseMap = {
     Menschen: 'Mensch',
@@ -63,6 +68,29 @@ const myRequests = computed(() => {
 });
 
 const latestMyRequest = computed(() => myRequests.value[0] ?? null);
+const hasUnseenInventoryItems = computed(() => {
+    return Object.values(unseenInventoryItemIds.value).some((value) => value === true);
+});
+const walletTypeLabels = {
+    grant: 'Vergabe',
+    spend: 'Ausgabe',
+    transfer_in: 'Eingang',
+    transfer_out: 'Ausgang',
+};
+const walletTypeBadges = {
+    grant: 'text-bg-success',
+    spend: 'text-bg-danger',
+    transfer_in: 'text-bg-success',
+    transfer_out: 'text-bg-danger',
+};
+const walletState = ref({ ...(props.character?.wallet ?? { transactions: [] }) });
+const wallet = computed(() => walletState.value ?? null);
+const walletTransactions = ref([...(walletState.value?.transactions ?? [])]);
+
+watch(() => props.character?.wallet, (nextWallet) => {
+    walletState.value = { ...(nextWallet ?? { transactions: [] }) };
+    walletTransactions.value = [...(nextWallet?.transactions ?? [])];
+}, { immediate: true });
 
 const racePreviewSources = computed(() => {
     if (!props.character?.race || !props.character?.gender) {
@@ -150,7 +178,8 @@ const onRequestConfirmed = (event) => {
     upsertRequest(event.request);
 };
 
-const upsertInventoryItemLocal = (item) => {
+const upsertInventoryItemLocal = (item, options = {}) => {
+    const markAsUnseen = options.markAsUnseen === true;
     const idx = inventoryItems.value.findIndex((entry) => Number(entry.id) === Number(item.id));
     if (idx >= 0) {
         inventoryItems.value[idx] = item;
@@ -159,11 +188,15 @@ const upsertInventoryItemLocal = (item) => {
     }
     inventoryItems.value.sort((a, b) => Number(a.sortOrder) - Number(b.sortOrder));
     noteDraftByItemId.value[String(item.id)] = item.notes ?? '';
+    if (markAsUnseen) {
+        unseenInventoryItemIds.value[String(item.id)] = true;
+    }
 };
 
 const removeInventoryItemLocal = (itemId) => {
     inventoryItems.value = inventoryItems.value.filter((entry) => Number(entry.id) !== Number(itemId));
     delete noteDraftByItemId.value[String(itemId)];
+    delete unseenInventoryItemIds.value[String(itemId)];
 };
 
 const onInventoryItemUpdated = (event) => {
@@ -176,7 +209,36 @@ const onInventoryItemUpdated = (event) => {
     }
 
     if (event.action === 'upsert' && event.item) {
-        upsertInventoryItemLocal(event.item);
+        upsertInventoryItemLocal(event.item, { markAsUnseen: event.notify === true });
+    }
+};
+
+const onWalletUpdated = (event) => {
+    if (Number(event.partyId) !== Number(props.party.id)) return;
+    if (Number(event.partyCharacterId) !== Number(props.character.id)) return;
+    if (!event.wallet) return;
+
+    walletState.value = {
+        ...(walletState.value ?? {}),
+        ...event.wallet,
+        transactions: event.wallet.transactions ?? walletTransactions.value,
+    };
+
+    if (event.transaction) {
+        const txIndex = walletTransactions.value.findIndex((entry) => Number(entry.id) === Number(event.transaction.id));
+        if (txIndex >= 0) {
+            walletTransactions.value[txIndex] = event.transaction;
+        } else {
+            walletTransactions.value.unshift(event.transaction);
+        }
+    } else {
+        walletTransactions.value = [...(event.wallet.transactions ?? walletTransactions.value)];
+    }
+};
+
+const markItemSeen = (itemId) => {
+    if (unseenInventoryItemIds.value[String(itemId)]) {
+        unseenInventoryItemIds.value[String(itemId)] = false;
     }
 };
 
@@ -287,6 +349,39 @@ const trySellItem = (item) => {
     inventoryActionHint.value = 'Verkaufen ist nur beim Handeln mit jemandem möglich. Das Handelssystem folgt später.';
 };
 
+const spendFromWallet = async () => {
+    if (walletBusy.value) return;
+
+    walletBusy.value = true;
+    try {
+        const response = await window.axios.post(route('parties.wallet-transactions.store', props.party.id), {
+            party_character_id: props.character.id,
+            type: 'spend',
+            amount_copper: Number(walletSpendCopper.value || 0),
+            note: walletSpendNote.value?.trim() || null,
+        });
+
+        if (response?.data?.wallet) {
+            walletState.value = {
+                ...(walletState.value ?? {}),
+                ...response.data.wallet,
+                transactions: response.data.wallet.transactions ?? walletTransactions.value,
+            };
+        }
+
+        if (response?.data?.transaction) {
+            walletTransactions.value.unshift(response.data.transaction);
+        }
+
+        walletSpendCopper.value = 1;
+        walletSpendNote.value = '';
+    } catch {
+        // handled by backend flash/validation
+    } finally {
+        walletBusy.value = false;
+    }
+};
+
 const rollTalent = async (request, talent) => {
     if (!talent?.key || isRolled(talent)) return;
     const rollKey = makeRollKey(request.id, talent.key);
@@ -318,7 +413,8 @@ onMounted(() => {
     window.Echo.private(`party.${props.party.id}`)
         .listen('.party.talent-request.created', onRequestCreated)
         .listen('.party.talent-request.confirmed', onRequestConfirmed)
-        .listen('.party.inventory-item.updated', onInventoryItemUpdated);
+        .listen('.party.inventory-item.updated', onInventoryItemUpdated)
+        .listen('.party.wallet.updated', onWalletUpdated);
 });
 
 onBeforeUnmount(() => {
@@ -358,6 +454,7 @@ onBeforeUnmount(() => {
                             @click="activeTab = 'inventory'"
                         >
                             Inventar
+                            <span v-if="hasUnseenInventoryItems" class="inventory-unseen-dot ms-2" aria-hidden="true"></span>
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
@@ -480,7 +577,77 @@ onBeforeUnmount(() => {
             <div v-else-if="activeTab === 'inventory'" class="card shadow-sm border-0 eldoria-panel">
                 <div class="card-body p-4 p-md-5">
                     <div class="text-uppercase small text-muted mb-2 eldoria-kicker">Inventar</div>
-                    <h3 class="h5 mb-3 eldoria-title">Reiseausrüstung von {{ character.name }}</h3>
+                    <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap mb-3">
+                        <h3 class="h5 mb-0 eldoria-title">Reiseausrüstung von {{ character.name }}</h3>
+                        <div class="wallet-bag-pill" title="Charakterbeutel">
+                            <span class="wallet-bag-icon" aria-hidden="true">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M10.1 2h3.8l.5 2.2h-4.8L10.1 2zm-3 4.2h9.8c2.7 0 5 2.2 5 5v6.2c0 2.5-2 4.6-4.6 4.6H6.7c-2.5 0-4.6-2-4.6-4.6v-6.2c0-2.8 2.2-5 5-5zm1.2 4.1c0 .7.5 1.2 1.2 1.2h5c.7 0 1.2-.6 1.2-1.2s-.5-1.2-1.2-1.2h-5c-.7 0-1.2.5-1.2 1.2z"/>
+                                </svg>
+                            </span>
+                            <span>{{ wallet?.display ?? '0G 0S 0K' }}</span>
+                        </div>
+                    </div>
+
+                    <div class="wallet-panel mb-4 p-3 p-md-4">
+                        <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-3">
+                            <div class="small text-uppercase text-muted eldoria-kicker-soft">Wallet</div>
+                            <div class="small text-muted">1G = 10S = 100K</div>
+                        </div>
+                        <div class="row g-2 align-items-end mb-3">
+                            <div class="col-12 col-md-2">
+                                <label class="form-label small mb-1">Ausgeben (K)</label>
+                                <input v-model.number="walletSpendCopper" type="number" min="1" class="form-control form-control-sm">
+                            </div>
+                            <div class="col-12 col-md-8">
+                                <label class="form-label small mb-1">Notiz</label>
+                                <input v-model="walletSpendNote" type="text" class="form-control form-control-sm" placeholder="z.B. Händler in Eldoria">
+                            </div>
+                            <div class="col-12 col-md-2">
+                                <button type="button" class="btn btn-sm btn-outline-danger w-100" :disabled="walletBusy" @click="spendFromWallet">
+                                    Ausgeben
+                                </button>
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-end">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" @click="walletModalOpen = true">
+                                Transaktionen anzeigen
+                            </button>
+                        </div>
+                    </div>
+
+                    <div v-if="walletModalOpen" class="wallet-modal-backdrop" @click.self="walletModalOpen = false">
+                        <div class="wallet-modal-card">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h4 class="h6 mb-0">Wallet-Transaktionen</h4>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" @click="walletModalOpen = false">
+                                    Schließen
+                                </button>
+                            </div>
+                            <div v-if="walletTransactions.length === 0" class="text-muted small">
+                                Noch keine Wallet-Transaktionen.
+                            </div>
+                            <div v-else class="d-flex flex-column gap-2">
+                                <div
+                                    v-for="tx in walletTransactions"
+                                    :key="tx.id"
+                                    class="wallet-transaction-row d-flex justify-content-between align-items-start gap-2"
+                                >
+                                    <div>
+                                        <div class="small fw-semibold">
+                                            {{ walletTypeLabels[tx.type] || tx.type }} · {{ tx.amountDisplay }}
+                                        </div>
+                                        <div class="small text-muted">
+                                            {{ tx.actorUserName || 'System' }}<span v-if="tx.note"> · {{ tx.note }}</span>
+                                        </div>
+                                    </div>
+                                    <span class="badge" :class="walletTypeBadges[tx.type] || 'text-bg-secondary'">
+                                        {{ tx.type }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
                     <div class="bag-area p-3 p-md-4">
                         <div class="bag-mouth mb-3">Jutebeutel</div>
@@ -492,10 +659,11 @@ onBeforeUnmount(() => {
                         </div>
                         <div v-else class="row g-2">
                             <div v-for="item in inventoryItems" :key="item.id" class="col-12 col-md-6">
-                                <div class="bag-item d-flex justify-content-between align-items-start gap-2">
+                                <div class="bag-item d-flex justify-content-between align-items-start gap-2" @mouseenter="markItemSeen(item.id)">
                                     <div>
                                         <div class="fw-semibold d-flex align-items-center gap-2">
                                             <span>{{ item.name }}</span>
+                                            <span v-if="unseenInventoryItemIds[String(item.id)]" class="inventory-unseen-dot" aria-hidden="true"></span>
                                             <span class="note-tooltip-wrap">
                                                 <button
                                                     type="button"
@@ -689,6 +857,57 @@ onBeforeUnmount(() => {
     padding: 0.6rem 0.65rem;
 }
 
+.wallet-bag-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    border: 1px solid #b78a4f;
+    background: rgba(250, 235, 206, 0.9);
+    color: #5b3f1f;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.wallet-bag-icon {
+    font-size: 0.95rem;
+}
+
+.wallet-panel {
+    border-radius: 14px;
+    border: 1px solid rgba(108, 74, 38, 0.3);
+    background: rgba(250, 240, 222, 0.78);
+}
+
+.wallet-transaction-row {
+    border: 1px solid rgba(110, 74, 35, 0.24);
+    border-radius: 8px;
+    background: rgba(255, 250, 241, 0.86);
+    padding: 0.45rem 0.55rem;
+}
+
+.wallet-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(28, 20, 10, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    z-index: 1050;
+}
+
+.wallet-modal-card {
+    width: min(680px, 100%);
+    max-height: 80vh;
+    overflow: auto;
+    background: #fff8ee;
+    border: 1px solid rgba(110, 74, 35, 0.35);
+    border-radius: 12px;
+    padding: 1rem;
+}
+
 .inventory-note-icon {
     display: inline-flex;
     align-items: center;
@@ -708,6 +927,15 @@ onBeforeUnmount(() => {
     color: #fff;
     background: #7b552a;
     border-color: #5f3f1d;
+}
+
+.inventory-unseen-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 999px;
+    display: inline-block;
+    background: #d11c2d;
+    box-shadow: 0 0 0 2px rgba(255, 238, 225, 0.92);
 }
 
 .note-tooltip-wrap {

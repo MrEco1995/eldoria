@@ -30,6 +30,15 @@ const inventoryForm = ref({
     notes: '',
 });
 const inventoryBusy = ref(false);
+const walletBusy = ref(false);
+const walletModalOpen = ref(false);
+const walletForm = ref({
+    type: 'grant',
+    amountGold: 0,
+    amountSilver: 0,
+    amountCopper: 0,
+    note: '',
+});
 
 const inventoryPresetCategories = [
     'Waffen',
@@ -103,6 +112,31 @@ watch(() => props.characters, (next) => {
 
 const activeCharacter = computed(() => {
     return playerCharacters.value.find((entry) => entry.id === activeCharacterId.value) ?? null;
+});
+
+const walletTypeLabels = {
+    grant: 'Vergabe',
+    spend: 'Ausgabe',
+    transfer_in: 'Eingang',
+    transfer_out: 'Ausgang',
+};
+
+const walletTypeBadges = {
+    grant: 'text-bg-success',
+    spend: 'text-bg-danger',
+    transfer_in: 'text-bg-success',
+    transfer_out: 'text-bg-danger',
+};
+
+const activeWallet = computed(() => activeCharacter.value?.wallet ?? null);
+
+const walletTransactions = computed(() => activeWallet.value?.transactions ?? []);
+
+const walletFormTotalCopper = computed(() => {
+    const gold = Math.max(0, Number(walletForm.value.amountGold || 0));
+    const silver = Math.max(0, Number(walletForm.value.amountSilver || 0));
+    const copper = Math.max(0, Number(walletForm.value.amountCopper || 0));
+    return (gold * 100) + (silver * 10) + copper;
 });
 
 const getTalentValue = (key) => Number(activeCharacter.value?.talents?.[key] ?? 0);
@@ -224,6 +258,13 @@ const onInventoryItemUpdated = (event) => {
     if (event.action === 'upsert' && event.item) {
         replaceInventoryItem(event.partyCharacterId, event.item);
     }
+};
+
+const onWalletUpdated = (event) => {
+    if (Number(event.partyId) !== Number(props.party.id)) return;
+    if (!event.partyCharacterId || !event.wallet) return;
+
+    upsertWallet(event.partyCharacterId, event.wallet, event.transaction ?? null);
 };
 
 const modifierLabel = (request) => {
@@ -360,6 +401,71 @@ const removeInventoryItemLocal = (characterId, itemId) => {
     };
 };
 
+const upsertWallet = (characterId, wallet, transaction = null) => {
+    const charIndex = characterState.value.findIndex((entry) => Number(entry.id) === Number(characterId));
+    if (charIndex < 0) return;
+
+    const nextTransactions = [...(wallet.transactions ?? characterState.value[charIndex]?.wallet?.transactions ?? [])];
+    if (transaction) {
+        const txIndex = nextTransactions.findIndex((entry) => Number(entry.id) === Number(transaction.id));
+        if (txIndex >= 0) {
+            nextTransactions[txIndex] = transaction;
+        } else {
+            nextTransactions.unshift(transaction);
+        }
+    }
+
+    characterState.value[charIndex] = {
+        ...characterState.value[charIndex],
+        wallet: {
+            ...(characterState.value[charIndex].wallet ?? {}),
+            ...wallet,
+            transactions: nextTransactions,
+        },
+    };
+};
+
+const splitCopper = (copperAmount) => {
+    const normalized = Math.max(0, Number(copperAmount || 0));
+    return {
+        gold: Math.floor(normalized / 100),
+        silver: Math.floor((normalized % 100) / 10),
+        copper: normalized % 10,
+    };
+};
+
+const formatCopper = (copperAmount) => {
+    const coins = splitCopper(copperAmount);
+    return `${coins.gold}G ${coins.silver}S ${coins.copper}K`;
+};
+
+const submitWalletTransaction = async () => {
+    if (!activeCharacter.value?.id || walletBusy.value) return;
+    if (walletFormTotalCopper.value <= 0) return;
+
+    walletBusy.value = true;
+    try {
+        const response = await window.axios.post(route('parties.wallet-transactions.store', props.party.id), {
+            party_character_id: activeCharacter.value.id,
+            type: walletForm.value.type,
+            amount_copper: walletFormTotalCopper.value,
+            note: walletForm.value.note?.trim() || null,
+        });
+
+        if (response?.data?.wallet) {
+            upsertWallet(activeCharacter.value.id, response.data.wallet, response.data.transaction ?? null);
+            walletForm.value.note = '';
+            walletForm.value.amountGold = 0;
+            walletForm.value.amountSilver = 0;
+            walletForm.value.amountCopper = 0;
+        }
+    } catch {
+        // handled by backend flash/validation
+    } finally {
+        walletBusy.value = false;
+    }
+};
+
 const addInventoryItem = async () => {
     if (!activeCharacter.value?.id || !inventoryForm.value.name.trim() || inventoryBusy.value) return;
 
@@ -455,7 +561,8 @@ onMounted(() => {
     window.Echo.private(`party.${props.party.id}`)
         .listen('.party.talent-request.created', onRequestCreated)
         .listen('.party.talent-request.confirmed', onRequestConfirmed)
-        .listen('.party.inventory-item.updated', onInventoryItemUpdated);
+        .listen('.party.inventory-item.updated', onInventoryItemUpdated)
+        .listen('.party.wallet.updated', onWalletUpdated);
 });
 
 onBeforeUnmount(() => {
@@ -653,7 +760,17 @@ onBeforeUnmount(() => {
                         <div v-else-if="activeDetailTab === 'inventory'" class="card shadow-sm border-0 eldoria-panel">
                             <div class="card-body p-4 p-md-5">
                                 <div class="text-uppercase small text-muted mb-2 eldoria-kicker">Inventar</div>
-                                <h3 class="h5 mb-3 eldoria-title">Inventar von {{ activeCharacter.name }}</h3>
+                                <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap mb-3">
+                                    <h3 class="h5 mb-0 eldoria-title">Inventar von {{ activeCharacter.name }}</h3>
+                                    <div class="wallet-bag-pill" title="Charakterbeutel">
+                                        <span class="wallet-bag-icon" aria-hidden="true">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                                <path d="M10.1 2h3.8l.5 2.2h-4.8L10.1 2zm-3 4.2h9.8c2.7 0 5 2.2 5 5v6.2c0 2.5-2 4.6-4.6 4.6H6.7c-2.5 0-4.6-2-4.6-4.6v-6.2c0-2.8 2.2-5 5-5zm1.2 4.1c0 .7.5 1.2 1.2 1.2h5c.7 0 1.2-.6 1.2-1.2s-.5-1.2-1.2-1.2h-5c-.7 0-1.2.5-1.2 1.2z"/>
+                                            </svg>
+                                        </span>
+                                        <span>{{ activeWallet?.display ?? '0G 0S 0K' }}</span>
+                                    </div>
+                                </div>
 
                                 <div class="mb-3">
                                     <div class="small text-uppercase text-muted mb-2 eldoria-kicker-soft">Kategorien</div>
@@ -710,6 +827,101 @@ onBeforeUnmount(() => {
                                     </div>
                                     <div class="col-12">
                                         <input v-model="inventoryForm.notes" type="text" class="form-control" placeholder="Notiz (optional)">
+                                    </div>
+                                </div>
+
+                                <div class="wallet-panel mb-4 p-3 p-md-4">
+                                    <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-3">
+                                        <div class="small text-uppercase text-muted eldoria-kicker-soft">Wallet</div>
+                                        <div class="small text-muted">1G = 10S = 100K</div>
+                                    </div>
+                                    <div class="row g-2 align-items-end mb-3">
+                                        <div class="col-12 col-md-3">
+                                            <label class="form-label small mb-1">Typ</label>
+                                            <select v-model="walletForm.type" class="form-select form-select-sm">
+                                                <option value="grant">Vergabe</option>
+                                                <option value="spend">Ausgabe</option>
+                                                <option value="transfer_in">Eingang</option>
+                                                <option value="transfer_out">Ausgang</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-12 col-md-2">
+                                            <label class="form-label small mb-1">Gold</label>
+                                            <input
+                                                v-model.number="walletForm.amountGold"
+                                                type="number"
+                                                min="0"
+                                                class="form-control form-control-sm"
+                                            >
+                                        </div>
+                                        <div class="col-12 col-md-2">
+                                            <label class="form-label small mb-1">Silber</label>
+                                            <input
+                                                v-model.number="walletForm.amountSilver"
+                                                type="number"
+                                                min="0"
+                                                class="form-control form-control-sm"
+                                            >
+                                        </div>
+                                        <div class="col-12 col-md-2">
+                                            <label class="form-label small mb-1">Kupfer</label>
+                                            <input
+                                                v-model.number="walletForm.amountCopper"
+                                                type="number"
+                                                min="0"
+                                                class="form-control form-control-sm"
+                                            >
+                                        </div>
+                                        <div class="col-12 col-md-3">
+                                            <label class="form-label small mb-1">Notiz</label>
+                                            <input v-model="walletForm.note" type="text" class="form-control form-control-sm" placeholder="optional">
+                                        </div>
+                                        <div class="col-12 col-md-2">
+                                            <button type="button" class="btn btn-sm btn-primary w-100" :disabled="walletBusy || walletFormTotalCopper <= 0" @click="submitWalletTransaction">
+                                                Buchen
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap">
+                                        <div class="small text-muted">
+                                            Gesamt: {{ formatCopper(walletFormTotalCopper) }}
+                                        </div>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" @click="walletModalOpen = true">
+                                            Transaktionen anzeigen
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div v-if="walletModalOpen" class="wallet-modal-backdrop" @click.self="walletModalOpen = false">
+                                    <div class="wallet-modal-card">
+                                        <div class="d-flex justify-content-between align-items-center mb-3">
+                                            <h4 class="h6 mb-0">Wallet-Transaktionen</h4>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" @click="walletModalOpen = false">
+                                                Schließen
+                                            </button>
+                                        </div>
+                                        <div v-if="walletTransactions.length === 0" class="text-muted small">
+                                            Noch keine Wallet-Transaktionen.
+                                        </div>
+                                        <div v-else class="d-flex flex-column gap-2">
+                                            <div
+                                                v-for="tx in walletTransactions"
+                                                :key="tx.id"
+                                                class="wallet-transaction-row d-flex justify-content-between align-items-start gap-2"
+                                            >
+                                                <div>
+                                                    <div class="small fw-semibold">
+                                                        {{ walletTypeLabels[tx.type] || tx.type }} · {{ tx.amountDisplay }}
+                                                    </div>
+                                                    <div class="small text-muted">
+                                                        {{ tx.actorUserName || 'System' }}<span v-if="tx.note"> · {{ tx.note }}</span>
+                                                    </div>
+                                                </div>
+                                                <span class="badge" :class="walletTypeBadges[tx.type] || 'text-bg-secondary'">
+                                                    {{ tx.type }}
+                                                </span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -871,5 +1083,56 @@ onBeforeUnmount(() => {
     border: 1px solid rgba(96, 64, 30, 0.25);
     border-radius: 10px;
     padding: 0.6rem 0.65rem;
+}
+
+.wallet-bag-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    border: 1px solid #b78a4f;
+    background: rgba(250, 235, 206, 0.9);
+    color: #5b3f1f;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.wallet-bag-icon {
+    font-size: 0.95rem;
+}
+
+.wallet-panel {
+    border-radius: 14px;
+    border: 1px solid rgba(108, 74, 38, 0.3);
+    background: rgba(250, 240, 222, 0.78);
+}
+
+.wallet-transaction-row {
+    border: 1px solid rgba(110, 74, 35, 0.24);
+    border-radius: 8px;
+    background: rgba(255, 250, 241, 0.86);
+    padding: 0.45rem 0.55rem;
+}
+
+.wallet-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(28, 20, 10, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    z-index: 1050;
+}
+
+.wallet-modal-card {
+    width: min(680px, 100%);
+    max-height: 80vh;
+    overflow: auto;
+    background: #fff8ee;
+    border: 1px solid rgba(110, 74, 35, 0.35);
+    border-radius: 12px;
+    padding: 1rem;
 }
 </style>

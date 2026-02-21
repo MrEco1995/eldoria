@@ -8,6 +8,7 @@ use App\Http\Controllers\PartyCharacterController;
 use App\Http\Controllers\PartyInventoryItemController;
 use App\Http\Controllers\PartyRollController;
 use App\Http\Controllers\PartyTalentRequestController;
+use App\Http\Controllers\PartyWalletTransactionController;
 use App\Http\Controllers\PublicMediaController;
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
@@ -79,6 +80,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('parties.inventory-items.update');
     Route::post('/parties/{party}/inventory-items/{inventoryItem}/use', [PartyInventoryItemController::class, 'use'])
         ->name('parties.inventory-items.use');
+    Route::post('/parties/{party}/wallet-transactions', [PartyWalletTransactionController::class, 'store'])
+        ->name('parties.wallet-transactions.store');
     Route::delete('/parties/{party}/inventory-items/{inventoryItem}', [PartyInventoryItemController::class, 'destroy'])
         ->name('parties.inventory-items.destroy');
     Route::post('/parties/{party}/rolls', [PartyRollController::class, 'store'])

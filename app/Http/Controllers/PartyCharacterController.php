@@ -106,6 +106,7 @@ class PartyCharacterController extends Controller
 
         if ($character) {
             $this->createStarterInventory($character);
+            $this->createStarterWallet($character);
             GenerateCharacterImage::dispatch($character->id);
         }
 
@@ -141,6 +142,13 @@ class PartyCharacterController extends Controller
         })->all();
 
         $character->inventoryItems()->createMany($payload);
+    }
+
+    private function createStarterWallet(PartyCharacter $character): void
+    {
+        $character->wallet()->create([
+            'copper_balance' => 25,
+        ]);
     }
 
     private function resolveStarterWeapon(string $race, string $className): string
