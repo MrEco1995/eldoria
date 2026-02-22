@@ -33,6 +33,10 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    mapLocations: {
+        type: Array,
+        default: () => [],
+    },
     talentPointPool: {
         type: Number,
         default: 140,
@@ -209,36 +213,6 @@ const traits = [
 ];
 
 const races = computed(() => props.races ?? []);
-const mapLocations = [
-    {
-        id: 'capital',
-        name: 'Hauptstadt Eldoria',
-        x: 49,
-        y: 44,
-        description: 'Politisches Zentrum des Reiches und häufigster Treffpunkt für neue Quests.',
-    },
-    {
-        id: 'northwatch',
-        name: 'Nordwacht',
-        x: 58,
-        y: 20,
-        description: 'Festung an der nördlichen Grenze. Hohe Präsenz von Wachen und Patrouillen.',
-    },
-    {
-        id: 'silverwald',
-        name: 'Silberwald',
-        x: 36,
-        y: 51,
-        description: 'Dichter Wald mit alten Ruinen und seltenen Ressourcen.',
-    },
-    {
-        id: 'ashen-coast',
-        name: 'Aschenküste',
-        x: 23,
-        y: 69,
-        description: 'Gefährliche Küstenregion, bekannt für Piraten und verlorene Schätze.',
-    },
-];
 
 const selectedRace = computed(() => {
     return races.value.find((race) => race.name === characterForm.race);
@@ -626,7 +600,7 @@ onBeforeUnmount(() => {
                         <InteractiveWorldMap
                             src="/images/EldoriaMap.png"
                             alt="Eldoria Weltkarte"
-                            :locations="mapLocations"
+                            :locations="props.mapLocations"
                         />
                     </div>
                 </div>

@@ -37,6 +37,14 @@ const transformStyle = computed(() => ({
     transform: `translate(${translateX.value}px, ${translateY.value}px) scale(${scale.value})`,
 }));
 
+const visibleLocations = computed(() => {
+    return props.locations.filter((entry) => Number(entry?.minZoom ?? 1) <= scale.value);
+});
+
+const hiddenSettlementCount = computed(() => {
+    return props.locations.filter((entry) => Number(entry?.minZoom ?? 1) > scale.value).length;
+});
+
 const selectedLocation = computed(() => {
     return props.locations.find((entry) => String(entry.id) === String(selectedLocationId.value)) ?? null;
 });
@@ -100,7 +108,10 @@ const selectLocation = (location) => {
     <div class="interactive-map">
         <div class="d-flex justify-content-between align-items-center gap-2 mb-3 flex-wrap">
             <div class="small text-muted">
-                Scrollen zum Zoomen, ziehen zum Bewegen.
+                Scrollen zum Zoomen, ziehen zum Bewegen. Zoom: x{{ scale.toFixed(1) }}
+                <span v-if="hiddenSettlementCount" class="ms-2">
+                    (weitere Orte ab höherem Zoom)
+                </span>
             </div>
             <div class="btn-group btn-group-sm" role="group" aria-label="Kartensteuerung">
                 <button type="button" class="btn btn-outline-secondary" @click="zoomBy(0.2)">+</button>
@@ -123,11 +134,14 @@ const selectLocation = (location) => {
                 <img :src="src" :alt="alt" class="map-image" draggable="false" />
 
                 <button
-                    v-for="location in locations"
+                    v-for="location in visibleLocations"
                     :key="location.id"
                     type="button"
                     class="map-marker"
-                    :class="{ active: String(location.id) === String(selectedLocationId) }"
+                    :class="{
+                        active: String(location.id) === String(selectedLocationId),
+                        village: location.type === 'village',
+                    }"
                     :style="{ left: `${location.x}%`, top: `${location.y}%` }"
                     :title="location.name"
                     @click.stop="selectLocation(location)"
@@ -155,7 +169,7 @@ const selectLocation = (location) => {
 <style scoped>
 .map-viewport {
     background: #0e1626;
-    min-height: 300px;
+    min-height: 500px;
     touch-action: none;
     cursor: grab;
 }
@@ -167,7 +181,7 @@ const selectLocation = (location) => {
 .map-canvas {
     width: 100%;
     height: 100%;
-    min-height: 300px;
+    min-height: 500px;
     position: relative;
     transform-origin: center center;
     user-select: none;
@@ -178,7 +192,7 @@ const selectLocation = (location) => {
     inset: 0;
     width: 100%;
     height: 100%;
-    object-fit: contain;
+    object-fit: cover;
     pointer-events: none;
 }
 
@@ -201,6 +215,13 @@ const selectLocation = (location) => {
     background: #ef4444;
     border: 2px solid #ffffff;
     box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.25);
+}
+
+.map-marker.village .marker-dot {
+    width: 0.7rem;
+    height: 0.7rem;
+    background: #22c55e;
+    box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.24);
 }
 
 .map-marker.active .marker-dot {

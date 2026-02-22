@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
             TalentSeeder::class,
             StarterWeaponSeeder::class,
             QuestSeeder::class,
+            PointOfInterestSeeder::class,
         ]);
 
         // User::factory(10)->create();

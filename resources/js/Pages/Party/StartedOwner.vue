@@ -11,6 +11,7 @@ const props = defineProps({
     talentDefinitions: { type: Array, default: () => [] },
     talentRequests: { type: Array, default: () => [] },
     npcTradeOffers: { type: Array, default: () => [] },
+    mapLocations: { type: Array, default: () => [] },
 });
 
 const page = usePage();
@@ -59,36 +60,6 @@ const npcTradeForm = ref({
     notes: '',
     items: [],
 });
-const mapLocations = [
-    {
-        id: 'capital',
-        name: 'Hauptstadt Eldoria',
-        x: 49,
-        y: 44,
-        description: 'Politisches Zentrum des Reiches und häufigster Treffpunkt für neue Quests.',
-    },
-    {
-        id: 'northwatch',
-        name: 'Nordwacht',
-        x: 58,
-        y: 20,
-        description: 'Festung an der nördlichen Grenze. Hohe Präsenz von Wachen und Patrouillen.',
-    },
-    {
-        id: 'silverwald',
-        name: 'Silberwald',
-        x: 36,
-        y: 51,
-        description: 'Dichter Wald mit alten Ruinen und seltenen Ressourcen.',
-    },
-    {
-        id: 'ashen-coast',
-        name: 'Aschenküste',
-        x: 23,
-        y: 69,
-        description: 'Gefährliche Küstenregion, bekannt für Piraten und verlorene Schätze.',
-    },
-];
 
 const npcTradeState = computed(() => {
     return npcTradeStateList.value.find((entry) => Number(entry.id) === Number(selectedNpcTradeOfferId.value)) ?? null;
@@ -1119,7 +1090,7 @@ onBeforeUnmount(() => {
                             <InteractiveWorldMap
                                 src="/images/EldoriaMap.png"
                                 alt="Eldoria Weltkarte"
-                                :locations="mapLocations"
+                                :locations="props.mapLocations"
                             />
                         </div>
                     </div>
@@ -1209,16 +1180,6 @@ onBeforeUnmount(() => {
                                 @click="activeDetailTab = 'inventory'"
                             >
                                 Inventar
-                            </button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button
-                                type="button"
-                                class="nav-link"
-                                :class="{ active: activeDetailTab === 'notes' }"
-                                @click="activeDetailTab = 'notes'"
-                            >
-                                Notizen
                             </button>
                         </li>
                         </ul>
@@ -1516,13 +1477,6 @@ onBeforeUnmount(() => {
                             </div>
                         </div>
 
-                        <div v-else class="card shadow-sm border-0 eldoria-panel">
-                        <div class="card-body p-4 p-md-5">
-                            <div class="text-uppercase small text-muted mb-2 eldoria-kicker">Notizen</div>
-                            <h3 class="h5 mb-2 eldoria-title">Notizen werden vorbereitet</h3>
-                            <p class="text-muted mb-0">Hier kannst du später Spielleiter-Notizen zum ausgewählten Spieler verwalten.</p>
-                        </div>
-                    </div>
                     </div>
                 </div>
             </div>

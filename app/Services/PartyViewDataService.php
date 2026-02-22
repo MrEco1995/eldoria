@@ -8,6 +8,7 @@ use App\Models\PartyNpcTradeOffer;
 use App\Models\PartyNpcTradeSellOffer;
 use App\Models\PartyTradeSession;
 use App\Models\PartyTalentRequest;
+use App\Models\PointOfInterest;
 use App\Models\Race;
 use App\Models\Talent;
 use Illuminate\Support\Collection;
@@ -31,6 +32,7 @@ class PartyViewDataService
             ] : null,
             'races' => $this->loadRaces(),
             'talents' => $this->loadTalents(),
+            'mapLocations' => $this->loadMapLocations(),
             'talentPointPool' => config('game.character_talent_point_pool', 140),
             'isOwner' => (int) $party->owner_id === $userId,
         ];
@@ -50,7 +52,35 @@ class PartyViewDataService
             'talentRequests' => $this->loadTalentRequests($party, $userId),
             'tradeSessions' => $this->loadTradeSessions($party, $userId),
             'npcTradeOffers' => $this->loadNpcTradeOffers($party),
+            'mapLocations' => $this->loadMapLocations(),
         ];
+    }
+
+    private function loadMapLocations(): Collection
+    {
+        return PointOfInterest::query()
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get([
+                'slug',
+                'name',
+                'type',
+                'x_percent',
+                'y_percent',
+                'min_zoom',
+                'description',
+            ])
+            ->map(fn ($location) => [
+                'id' => $location->slug,
+                'name' => $location->name,
+                'type' => $location->type,
+                'x' => (float) $location->x_percent,
+                'y' => (float) $location->y_percent,
+                'minZoom' => (float) $location->min_zoom,
+                'description' => $location->description,
+            ])
+            ->values();
     }
 
     private function loadActiveInvite(int $partyId): ?PartyInvite
