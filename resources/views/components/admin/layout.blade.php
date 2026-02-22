@@ -66,6 +66,9 @@
                     <a href="{{ route('admin.characters.index') }}" class="admin-nav-link {{ request()->routeIs('admin.characters.*') ? 'active' : '' }}">
                         Charakter
                     </a>
+                    <a href="{{ route('admin.map.index') }}" class="admin-nav-link {{ request()->routeIs('admin.map.*') ? 'active' : '' }}">
+                        Map
+                    </a>
                     <a href="{{ route('admin.races.index') }}" class="admin-nav-link {{ request()->routeIs('admin.races.*') ? 'active' : '' }}">
                         Völker
                     </a>
