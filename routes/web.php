@@ -11,11 +11,16 @@ use App\Http\Controllers\PartyNpcTradeOfferController;
 use App\Http\Controllers\PartyTalentRequestController;
 use App\Http\Controllers\PartyTradeSessionController;
 use App\Http\Controllers\PartyWalletTransactionController;
+use App\Http\Controllers\Admin\Auth\AuthenticatedSessionController as AdminAuthenticatedSessionController;
+use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\PublicMediaController;
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+
+$adminPrefix = trim((string) env('ADMIN_PATH_PREFIX', 'xpnp-2709'), '/');
+$adminLoginPath = trim((string) env('ADMIN_LOGIN_PATH', 'loign'), '/');
 
 Route::redirect('/login-blade', '/login')->name('login.blade');
 Route::redirect('/register-blade', '/register')->name('register.blade');
@@ -116,6 +121,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('parties.invites.regenerate');
     Route::get('/invites/{token}', [PartyInviteController::class, 'join'])
         ->name('parties.invites.join');
+});
+
+Route::prefix($adminPrefix)->name('admin.')->group(function () use ($adminLoginPath) {
+    Route::middleware('admin.guest')->group(function () {
+        Route::get("/{$adminLoginPath}", [AdminAuthenticatedSessionController::class, 'create'])->name('login');
+        Route::post("/{$adminLoginPath}", [AdminAuthenticatedSessionController::class, 'store'])->name('login.store');
+    });
+
+    Route::middleware('admin.auth')->group(function () {
+        Route::get('/dashboard', AdminDashboardController::class)->name('dashboard');
+        Route::post('/logout', [AdminAuthenticatedSessionController::class, 'destroy'])->name('logout');
+    });
 });
 
 require __DIR__.'/auth.php';

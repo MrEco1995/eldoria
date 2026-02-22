@@ -21,6 +21,7 @@ class DatabaseSeeder extends Seeder
             StarterWeaponSeeder::class,
             QuestSeeder::class,
             PointOfInterestSeeder::class,
+            AdminSeeder::class,
         ]);
 
         // User::factory(10)->create();
