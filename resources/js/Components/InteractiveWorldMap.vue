@@ -179,9 +179,19 @@ onBeforeUnmount(() => {
             </div>
         </div>
 
+        <div v-if="showResetOverlay" class="d-flex justify-content-end mt-3 mb-2">
+            <button
+                type="button"
+                class="btn btn-sm btn-outline-secondary"
+                @click="resetView"
+            >
+                Reset
+            </button>
+        </div>
+
         <div
             v-if="showTopSelectionInfo && selectedLocation && topInfoVisible"
-            class="alert alert-info d-flex justify-content-between align-items-start gap-2 mt-3 mb-0"
+            class="alert alert-info d-flex justify-content-between align-items-start gap-2 mb-2"
             role="status"
         >
             <div>
@@ -211,15 +221,6 @@ onBeforeUnmount(() => {
         >
             <div class="map-canvas" :style="[transformStyle, canvasStyle]">
                 <img :src="src" :alt="alt" class="map-image" draggable="false" />
-
-                <button
-                    v-if="showResetOverlay"
-                    type="button"
-                    class="btn btn-sm btn-light map-overlay-reset"
-                    @click.stop="resetView"
-                >
-                    Reset
-                </button>
 
                 <button
                     v-for="location in visibleLocations"
@@ -292,13 +293,6 @@ onBeforeUnmount(() => {
     flex-direction: column;
     align-items: center;
     gap: 0.2rem;
-}
-
-.map-overlay-reset {
-    position: absolute;
-    top: 0.75rem;
-    right: 0.75rem;
-    z-index: 25;
 }
 
 .marker-dot {
