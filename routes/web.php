@@ -13,6 +13,7 @@ use App\Http\Controllers\PartyTradeSessionController;
 use App\Http\Controllers\PartyWalletTransactionController;
 use App\Http\Controllers\Admin\Auth\AuthenticatedSessionController as AdminAuthenticatedSessionController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\PublicMediaController;
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
@@ -131,6 +132,7 @@ Route::prefix($adminPrefix)->name('admin.')->group(function () use ($adminLoginP
 
     Route::middleware('admin.auth')->group(function () {
         Route::get('/dashboard', AdminDashboardController::class)->name('dashboard');
+        Route::get('/users', [AdminUserController::class, 'index'])->name('users.index');
         Route::post('/logout', [AdminAuthenticatedSessionController::class, 'destroy'])->name('logout');
     });
 });

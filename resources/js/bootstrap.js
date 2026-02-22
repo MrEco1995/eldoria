@@ -4,10 +4,37 @@ window.axios = axios;
 window.axios.defaults.withCredentials = true;
 window.axios.defaults.withXSRFToken = true;
 window.axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
-const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+const getCsrfTokenFromMeta = () => {
+    return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? null;
+};
+
+const csrfToken = getCsrfTokenFromMeta();
 if (csrfToken) {
     window.axios.defaults.headers.common['X-CSRF-TOKEN'] = csrfToken;
 }
+
+window.axios.interceptors.request.use((config) => {
+    const latestToken = getCsrfTokenFromMeta();
+    if (latestToken) {
+        config.headers['X-CSRF-TOKEN'] = latestToken;
+    }
+    return config;
+});
+
+window.axios.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        const status = error?.response?.status;
+
+        // Session expired or CSRF token mismatch -> hard reload to refresh cookies/token.
+        if (status === 419) {
+            window.location.reload();
+        }
+
+        return Promise.reject(error);
+    },
+);
 
 import Echo from 'laravel-echo';
 import Pusher from 'pusher-js';
