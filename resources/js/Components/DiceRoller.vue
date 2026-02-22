@@ -81,7 +81,7 @@ const roll = (sides, dieLabel) => {
                 rollError.value = error?.response?.data?.message
                     ?? 'Sitzung abgelaufen. Bitte Seite neu laden und erneut versuchen.';
             } else {
-                rollError.value = 'Wurf konnte nicht live uebertragen werden.';
+                rollError.value = 'Wurf konnte nicht live übertragen werden.';
             }
         } finally {
             isRolling.value = false;
@@ -119,7 +119,7 @@ onBeforeUnmount(() => {
                 aria-label="Würfeln anzeigen"
                 title="Würfeln anzeigen"
             >
-                Wuerfeln
+                Würfeln
             </button>
         </div>
 
@@ -127,7 +127,7 @@ onBeforeUnmount(() => {
             <div class="card-body p-3">
                 <div class="d-flex justify-content-between align-items-start mb-2">
                     <div class="text-uppercase small text-muted" style="letter-spacing: 2px;">
-                        Wuerfeln
+                        Würfeln
                     </div>
                     <button
                         type="button"
@@ -139,7 +139,7 @@ onBeforeUnmount(() => {
                         -
                     </button>
                 </div>
-                <h5 class="card-title mb-3">Schneller Wuerfelwurf</h5>
+                <h5 class="card-title mb-3">Schneller Würfelwurf</h5>
 
                 <div class="d-flex gap-2 flex-wrap">
                     <button
@@ -148,8 +148,8 @@ onBeforeUnmount(() => {
                         :class="{ 'dice-rolling': isRolling && activeDie === 'W20' }"
                         @click="roll(20, 'W20')"
                         :disabled="isRolling"
-                        title="W20 wuerfeln"
-                        aria-label="W20 wuerfeln"
+                        title="W20 würfeln"
+                        aria-label="W20 würfeln"
                     >
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                             <path d="M12 2 3 8l3 11h12l3-11-9-6Z" stroke="currentColor" stroke-width="1.8" />
@@ -163,8 +163,8 @@ onBeforeUnmount(() => {
                         :class="{ 'dice-rolling': isRolling && activeDie === 'W6' }"
                         @click="roll(6, 'W6')"
                         :disabled="isRolling"
-                        title="W6 wuerfeln"
-                        aria-label="W6 wuerfeln"
+                        title="W6 würfeln"
+                        aria-label="W6 würfeln"
                     >
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                             <rect x="3" y="3" width="18" height="18" rx="3.5" stroke="currentColor" stroke-width="1.8" />
@@ -188,7 +188,7 @@ onBeforeUnmount(() => {
                     <div class="fw-semibold">{{ lastRoll.label }}: {{ lastRoll.value }}</div>
                 </div>
                 <div v-else class="small text-muted mt-3 mb-2">
-                    {{ isRolling ? 'Wuerfel rollt...' : 'Noch kein Wurf.' }}
+                    {{ isRolling ? 'Würfel rollt...' : 'Noch kein Wurf.' }}
                 </div>
 
                 <div v-if="rollError" class="small text-danger mb-2">

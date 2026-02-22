@@ -92,7 +92,7 @@ class PartyTalentRequestController extends Controller
             fn (array $talent) => ($talent['key'] ?? null) === $data['rolled_talent_key']
         );
         abort_unless($talentIndex !== false, 422);
-        abort_if(!empty($talents[$talentIndex]['rolledAt']), 409, 'Dieses Talent wurde bereits gewuerfelt.');
+        abort_if(!empty($talents[$talentIndex]['rolledAt']), 409, 'Dieses Talent wurde bereits gewürfelt.');
 
         $character = PartyCharacter::query()
             ->where('party_id', $party->id)
@@ -134,7 +134,7 @@ class PartyTalentRequestController extends Controller
             return response()->json(['ok' => true, 'request' => $payload], 200);
         }
 
-        return back()->with('status', 'Wurf wurde bestaetigt.');
+        return back()->with('status', 'Wurf wurde bestätigt.');
     }
 
     private function toPayload(PartyTalentRequest $request, string $ownerName, string $targetName): array

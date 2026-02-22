@@ -20,6 +20,8 @@ use Illuminate\Validation\ValidationException;
 
 class PartyNpcTradeOfferController extends Controller
 {
+    private const TRAVEL_JOURNAL_NAME = 'reisetagebuch';
+
     public function upsert(Request $request, Party $party): JsonResponse
     {
         $user = $request->user();
@@ -256,18 +258,18 @@ class PartyNpcTradeOfferController extends Controller
             $items = $this->normalizeItemsForStorage($offer->inventory_items ?? []);
             $itemIndex = collect($items)->search(fn (array $item) => (int) $item['id'] === (int) $data['item_id']);
             if ($itemIndex === false) {
-                abort(422, 'Dieses NPC-Item ist nicht mehr verfuegbar.');
+                abort(422, 'Dieses NPC-Item ist nicht mehr verfügbar.');
             }
 
             $buyQuantity = (int) $data['quantity'];
             $currentQuantity = (int) ($items[$itemIndex]['quantity'] ?? 0);
             if ($buyQuantity > $currentQuantity) {
-                abort(422, 'Nicht genug Menge beim NPC verfuegbar.');
+                abort(422, 'Nicht genug Menge beim NPC verfügbar.');
             }
 
             $unitPriceCopper = (int) ($items[$itemIndex]['price_copper'] ?? 0);
             if ($unitPriceCopper <= 0) {
-                abort(422, 'Dieses NPC-Item hat keinen gueltigen Preis.');
+                abort(422, 'Dieses NPC-Item hat keinen gültigen Preis.');
             }
 
             $totalPriceCopper = $buyQuantity * $unitPriceCopper;
@@ -376,7 +378,7 @@ class PartyNpcTradeOfferController extends Controller
                 ->exists();
 
             if ($existingPending) {
-                abort(422, 'Fuer dieses Item gibt es bereits ein offenes Verkaufsangebot.');
+                abort(422, 'Für dieses Item gibt es bereits ein offenes Verkaufsangebot.');
             }
 
             $lastRejected = PartyNpcTradeSellOffer::query()
@@ -468,7 +470,7 @@ class PartyNpcTradeOfferController extends Controller
                 ->findOrFail($lockedSellOffer->inventory_item_id);
 
             if ((int) $inventoryItem->quantity < (int) $lockedSellOffer->quantity) {
-                abort(422, 'Der Spieler besitzt nicht mehr genug Menge fuer dieses Angebot.');
+                abort(422, 'Der Spieler besitzt nicht mehr genug Menge für dieses Angebot.');
             }
 
             $newQuantity = (int) $inventoryItem->quantity - (int) $lockedSellOffer->quantity;
@@ -731,6 +733,20 @@ class PartyNpcTradeOfferController extends Controller
         $category = $sourceItem['category'] ?? null;
         $notes = $sourceItem['notes'] ?? null;
 
+        if ($this->isTravelJournalName($name)) {
+            if ($quantity > 1) {
+                throw ValidationException::withMessages([
+                    'quantity' => ['Ein Charakter kann maximal ein Reisetagebuch besitzen.'],
+                ]);
+            }
+
+            if ($this->characterHasTravelJournal($character)) {
+                throw ValidationException::withMessages([
+                    'item_id' => ['Du besitzt bereits ein Reisetagebuch.'],
+                ]);
+            }
+        }
+
         $query = InventoryItem::query()
             ->where('party_character_id', $character->id)
             ->where('name', $name);
@@ -837,5 +853,19 @@ class PartyNpcTradeOfferController extends Controller
         $coins = $this->splitCopper($copperAmount);
 
         return sprintf('%dG %dS %dK', $coins['gold'], $coins['silver'], $coins['copper']);
+    }
+
+    private function characterHasTravelJournal(PartyCharacter $character): bool
+    {
+        return InventoryItem::query()
+            ->where('party_character_id', $character->id)
+            ->where('quantity', '>', 0)
+            ->get(['name'])
+            ->contains(fn (InventoryItem $item) => $this->isTravelJournalName((string) $item->name));
+    }
+
+    private function isTravelJournalName(string $name): bool
+    {
+        return mb_strtolower(trim($name)) === self::TRAVEL_JOURNAL_NAME;
     }
 }

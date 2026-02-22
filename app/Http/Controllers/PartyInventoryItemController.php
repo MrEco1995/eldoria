@@ -9,9 +9,12 @@ use App\Models\PartyCharacter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class PartyInventoryItemController extends Controller
 {
+    private const TRAVEL_JOURNAL_NAME = 'reisetagebuch';
+
     public function store(Request $request, Party $party): JsonResponse
     {
         $user = $request->user();
@@ -30,6 +33,8 @@ class PartyInventoryItemController extends Controller
         $this->assertCanManageInventory($party, $user->id, $character->user_id);
 
         $requestedQuantity = (int) ($data['quantity'] ?? 1);
+        $this->assertTravelJournalConstraintsForUpsert($character, (string) $data['name'], $requestedQuantity);
+
         $existingItemQuery = InventoryItem::query()
             ->where('party_character_id', $character->id)
             ->where('name', $data['name']);
@@ -96,6 +101,17 @@ class PartyInventoryItemController extends Controller
             ];
 
         $data = $request->validate($rules);
+
+        if ($isOwner) {
+            $nextName = (string) ($data['name'] ?? $inventoryItem->name);
+            $nextQuantity = (int) ($data['quantity'] ?? $inventoryItem->quantity);
+            $this->assertTravelJournalConstraintsForUpsert(
+                $character,
+                $nextName,
+                $nextQuantity,
+                (int) $inventoryItem->id
+            );
+        }
 
         $inventoryItem->fill($data);
         $inventoryItem->save();
@@ -189,6 +205,49 @@ class PartyInventoryItemController extends Controller
         $isOwner = (int) $party->owner_id === (int) $actorUserId;
         $isOwnCharacter = (int) $actorUserId === (int) $characterUserId;
         abort_unless($isOwner || $isOwnCharacter, 403);
+    }
+
+    private function assertTravelJournalConstraintsForUpsert(
+        PartyCharacter $character,
+        string $itemName,
+        int $quantity,
+        ?int $exceptItemId = null
+    ): void {
+        if (! $this->isTravelJournalName($itemName)) {
+            return;
+        }
+
+        if ($quantity > 1) {
+            throw ValidationException::withMessages([
+                'quantity' => ['Ein Charakter kann maximal ein Reisetagebuch besitzen.'],
+            ]);
+        }
+
+        if ($this->characterHasTravelJournal($character, $exceptItemId)) {
+            throw ValidationException::withMessages([
+                'name' => ['Dieser Charakter besitzt bereits ein Reisetagebuch.'],
+            ]);
+        }
+    }
+
+    private function characterHasTravelJournal(PartyCharacter $character, ?int $exceptItemId = null): bool
+    {
+        $query = InventoryItem::query()
+            ->where('party_character_id', $character->id)
+            ->where('quantity', '>', 0);
+
+        if ($exceptItemId) {
+            $query->where('id', '!=', $exceptItemId);
+        }
+
+        return $query->get(['name'])->contains(
+            fn (InventoryItem $item) => $this->isTravelJournalName((string) $item->name)
+        );
+    }
+
+    private function isTravelJournalName(string $name): bool
+    {
+        return mb_strtolower(trim($name)) === self::TRAVEL_JOURNAL_NAME;
     }
 
     private function toPayload(InventoryItem $item): array

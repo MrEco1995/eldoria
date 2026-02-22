@@ -1,5 +1,6 @@
 ﻿<script setup>
 import DiceRoller from '@/Components/DiceRoller.vue';
+import InteractiveWorldMap from '@/Components/InteractiveWorldMap.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import CharacterTab from '@/Pages/Party/StartedMemberTabs/CharacterTab.vue';
 import InventoryTab from '@/Pages/Party/StartedMemberTabs/InventoryTab.vue';
@@ -32,6 +33,8 @@ const noteEditorOpenByItemId = ref({});
 const unseenInventoryItemIds = ref({});
 const inventoryBusy = ref(false);
 const inventoryActionHint = ref('');
+const journalNoteBusy = ref(false);
+const journalNoteDraft = ref('');
 const walletModalOpen = ref(false);
 const npcTradeModalOpen = ref(false);
 const npcTradeBusy = ref(false);
@@ -50,6 +53,36 @@ const tradeBusy = ref(false);
 const activeTradeModalOpen = ref(false);
 const selectedTradeTargetCharacterId = ref(null);
 const tradeSessionState = ref([...(props.tradeSessions ?? [])]);
+const mapLocations = [
+    {
+        id: 'capital',
+        name: 'Hauptstadt Eldoria',
+        x: 49,
+        y: 44,
+        description: 'Politisches Zentrum des Reiches und häufigster Treffpunkt für neue Quests.',
+    },
+    {
+        id: 'northwatch',
+        name: 'Nordwacht',
+        x: 58,
+        y: 20,
+        description: 'Festung an der nördlichen Grenze. Hohe Präsenz von Wachen und Patrouillen.',
+    },
+    {
+        id: 'silverwald',
+        name: 'Silberwald',
+        x: 36,
+        y: 51,
+        description: 'Dichter Wald mit alten Ruinen und seltenen Ressourcen.',
+    },
+    {
+        id: 'ashen-coast',
+        name: 'Aschenküste',
+        x: 23,
+        y: 69,
+        description: 'Gefährliche Küstenregion, bekannt für Piraten und verlorene Schätze.',
+    },
+];
 
 const raceImageBaseMap = {
     Menschen: 'Mensch',
@@ -209,8 +242,35 @@ const npcSellAmountCopper = computed(() => {
     return (gold * 100) + (silver * 10) + copper;
 });
 
+const hasMapItem = computed(() => {
+    return inventoryItems.value.some((item) => {
+        if (Number(item?.quantity || 0) <= 0) return false;
+        const name = String(item?.name ?? '').trim().toLowerCase();
+        return name === 'karte' || name.includes('karte');
+    });
+});
+
+const isTravelJournalItem = (item) => String(item?.name ?? '').trim().toLowerCase() === 'reisetagebuch';
+const activeTravelJournalItem = computed(() => {
+    return inventoryItems.value.find((item) => isTravelJournalItem(item) && Number(item.quantity || 0) > 0) ?? null;
+});
+const hasTravelJournal = computed(() => Boolean(activeTravelJournalItem.value));
+
 watch(npcTradeMerchants, (merchants) => {
     if (!merchants.length && activeTab.value === 'npc-trade') {
+        activeTab.value = 'inventory';
+    }
+}, { immediate: true });
+
+watch(activeTravelJournalItem, (journalItem) => {
+    journalNoteDraft.value = journalItem?.notes ?? '';
+    if (!journalItem && activeTab.value === 'notes') {
+        activeTab.value = 'inventory';
+    }
+}, { immediate: true });
+
+watch(hasMapItem, (hasMap) => {
+    if (!hasMap && activeTab.value === 'map') {
         activeTab.value = 'inventory';
     }
 }, { immediate: true });
@@ -643,6 +703,31 @@ const handleNoteInput = (itemId, value) => {
     noteDraftByItemId.value[String(itemId)] = value;
 };
 
+const handleJournalNoteInput = (value) => {
+    journalNoteDraft.value = value;
+};
+
+const saveJournalNotes = async () => {
+    if (journalNoteBusy.value || !activeTravelJournalItem.value?.id) return;
+    journalNoteBusy.value = true;
+    try {
+        const response = await window.axios.patch(route('parties.inventory-items.update', {
+            party: props.party.id,
+            inventoryItem: activeTravelJournalItem.value.id,
+        }), {
+            notes: (journalNoteDraft.value ?? '').trim() || null,
+        });
+        if (response?.data?.item) {
+            upsertInventoryItemLocal(response.data.item, { markAsUnseen: false });
+            journalNoteDraft.value = response.data.item.notes ?? '';
+        }
+    } catch {
+        // handled by backend flash/validation
+    } finally {
+        journalNoteBusy.value = false;
+    }
+};
+
 const handleNpcSellFormInput = (field, value) => {
     npcSellForm.value[field] = value;
 };
@@ -852,7 +937,17 @@ onBeforeUnmount(() => {
                             NPC Handel
                         </button>
                     </li>
-                    <li class="nav-item" role="presentation">
+                    <li v-if="hasMapItem" class="nav-item" role="presentation">
+                        <button
+                            type="button"
+                            class="nav-link"
+                            :class="{ active: activeTab === 'map' }"
+                            @click="activeTab = 'map'"
+                        >
+                            Karte
+                        </button>
+                    </li>
+                    <li v-if="hasTravelJournal" class="nav-item" role="presentation">
                         <button
                             type="button"
                             class="nav-link"
@@ -923,7 +1018,26 @@ onBeforeUnmount(() => {
                 :on-open-merchant="openNpcMerchantTrade"
             />
 
-            <NotesTab v-else />
+            <div v-else-if="activeTab === 'map'" class="card shadow-sm border-0 eldoria-panel">
+                <div class="card-body p-4">
+                    <div class="text-uppercase small text-muted mb-2 eldoria-kicker">Weltkarte</div>
+                    <h3 class="h5 mb-3 eldoria-title">Eldoria</h3>
+                    <InteractiveWorldMap
+                        src="/images/EldoriaMap.png"
+                        alt="Eldoria Weltkarte"
+                        :locations="mapLocations"
+                    />
+                </div>
+            </div>
+
+            <NotesTab
+                v-else-if="activeTab === 'notes'"
+                :journal-item="activeTravelJournalItem"
+                :note-draft="journalNoteDraft"
+                :save-busy="journalNoteBusy"
+                :on-input="handleJournalNoteInput"
+                :on-save="saveJournalNotes"
+            />
 
             <TradePickerModal
                 :is-open="tradePickerOpen"

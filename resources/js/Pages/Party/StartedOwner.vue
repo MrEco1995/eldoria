@@ -1,5 +1,6 @@
 ﻿<script setup>
 import DiceRoller from '@/Components/DiceRoller.vue';
+import InteractiveWorldMap from '@/Components/InteractiveWorldMap.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, usePage } from '@inertiajs/vue3';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
@@ -18,6 +19,7 @@ const ownerName = computed(() => page.props.auth?.user?.name ?? 'Spielleiter');
 const characterState = ref([...(props.characters ?? [])]);
 const playerCharacters = computed(() => characterState.value ?? []);
 const NPC_TRADE_TOP_TAB = 'npc-trade';
+const MAP_TOP_TAB = 'map';
 const activeCharacterId = ref(playerCharacters.value[0]?.id ?? NPC_TRADE_TOP_TAB);
 const activeDetailTab = ref('character');
 const selectedTalentsByUser = ref({});
@@ -57,6 +59,36 @@ const npcTradeForm = ref({
     notes: '',
     items: [],
 });
+const mapLocations = [
+    {
+        id: 'capital',
+        name: 'Hauptstadt Eldoria',
+        x: 49,
+        y: 44,
+        description: 'Politisches Zentrum des Reiches und häufigster Treffpunkt für neue Quests.',
+    },
+    {
+        id: 'northwatch',
+        name: 'Nordwacht',
+        x: 58,
+        y: 20,
+        description: 'Festung an der nördlichen Grenze. Hohe Präsenz von Wachen und Patrouillen.',
+    },
+    {
+        id: 'silverwald',
+        name: 'Silberwald',
+        x: 36,
+        y: 51,
+        description: 'Dichter Wald mit alten Ruinen und seltenen Ressourcen.',
+    },
+    {
+        id: 'ashen-coast',
+        name: 'Aschenküste',
+        x: 23,
+        y: 69,
+        description: 'Gefährliche Küstenregion, bekannt für Piraten und verlorene Schätze.',
+    },
+];
 
 const npcTradeState = computed(() => {
     return npcTradeStateList.value.find((entry) => Number(entry.id) === Number(selectedNpcTradeOfferId.value)) ?? null;
@@ -94,7 +126,7 @@ const inventoryPresetItemsByCategory = {
     ],
     Magie: [
         { name: 'Runenstein', quantity: 1 },
-        { name: 'Aetherkristall', quantity: 1 },
+        { name: 'Ätherkristall', quantity: 1 },
     ],
     Quest: [
         { name: 'Versiegelter Brief', quantity: 1 },
@@ -127,7 +159,7 @@ watch(() => props.talentRequests, (next) => {
 
 watch(() => props.characters, (next) => {
     characterState.value = [...(next ?? [])];
-    if (activeCharacterId.value === NPC_TRADE_TOP_TAB) {
+    if ([NPC_TRADE_TOP_TAB, MAP_TOP_TAB].includes(activeCharacterId.value)) {
         return;
     }
     if (!characterState.value.some((entry) => Number(entry.id) === Number(activeCharacterId.value))) {
@@ -174,6 +206,7 @@ const activeCharacter = computed(() => {
 });
 
 const isNpcTradeTopTabActive = computed(() => activeCharacterId.value === NPC_TRADE_TOP_TAB);
+const isMapTopTabActive = computed(() => activeCharacterId.value === MAP_TOP_TAB);
 
 const walletTypeLabels = {
     in: 'IN',
@@ -899,6 +932,11 @@ onBeforeUnmount(() => {
                             NPC Handel
                         </button>
                     </li>
+                    <li class="nav-item" role="presentation">
+                        <button type="button" class="nav-link" :class="{ active: isMapTopTabActive }" @click="activeCharacterId = MAP_TOP_TAB">
+                            Karte
+                        </button>
+                    </li>
                     <li v-for="entry in playerCharacters" :key="entry.id" class="nav-item" role="presentation">
                         <button type="button" class="nav-link" :class="{ active: activeCharacterId === entry.id }" @click="activeCharacterId = entry.id">
                             {{ entry.user.name }}
@@ -1072,6 +1110,17 @@ onBeforeUnmount(() => {
                                     </button>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                    <div v-else-if="isMapTopTabActive" class="card shadow-sm border-0 eldoria-panel">
+                        <div class="card-body p-4 p-md-5">
+                            <div class="text-uppercase small text-muted mb-2 eldoria-kicker">Weltkarte</div>
+                            <h3 class="h5 mb-3 eldoria-title">Eldoria</h3>
+                            <InteractiveWorldMap
+                                src="/images/EldoriaMap.png"
+                                alt="Eldoria Weltkarte"
+                                :locations="mapLocations"
+                            />
                         </div>
                     </div>
 

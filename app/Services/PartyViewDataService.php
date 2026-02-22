@@ -31,7 +31,7 @@ class PartyViewDataService
             ] : null,
             'races' => $this->loadRaces(),
             'talents' => $this->loadTalents(),
-            'talentPointPool' => config('game.character_talent_point_pool', 35),
+            'talentPointPool' => config('game.character_talent_point_pool', 140),
             'isOwner' => (int) $party->owner_id === $userId,
         ];
     }

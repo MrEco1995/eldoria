@@ -25,7 +25,7 @@ class PartyRollController extends Controller
         $max = $data['die'] === 'W20' ? 20 : 6;
         if ($data['result'] > $max) {
             throw ValidationException::withMessages([
-                'result' => 'Ungueltiges Wuerfelergebnis.',
+                'result' => 'Ungültiges Würfelergebnis.',
             ]);
         }
 

@@ -1,5 +1,6 @@
 ﻿<script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import InteractiveWorldMap from '@/Components/InteractiveWorldMap.vue';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
@@ -34,7 +35,7 @@ const props = defineProps({
     },
     talentPointPool: {
         type: Number,
-        default: 35,
+        default: 140,
     },
     isOwner: {
         type: Boolean,
@@ -61,7 +62,7 @@ const canCloseParty = computed(() => {
 
 const copied = ref(false);
 const characterStep = ref(1);
-const maxTalentPoints = computed(() => Number(props.talentPointPool ?? 35));
+const maxTalentPoints = computed(() => Number(props.talentPointPool ?? 140));
 
 const talentDefinitions = computed(() => {
     const groups = new Map();
@@ -208,6 +209,36 @@ const traits = [
 ];
 
 const races = computed(() => props.races ?? []);
+const mapLocations = [
+    {
+        id: 'capital',
+        name: 'Hauptstadt Eldoria',
+        x: 49,
+        y: 44,
+        description: 'Politisches Zentrum des Reiches und häufigster Treffpunkt für neue Quests.',
+    },
+    {
+        id: 'northwatch',
+        name: 'Nordwacht',
+        x: 58,
+        y: 20,
+        description: 'Festung an der nördlichen Grenze. Hohe Präsenz von Wachen und Patrouillen.',
+    },
+    {
+        id: 'silverwald',
+        name: 'Silberwald',
+        x: 36,
+        y: 51,
+        description: 'Dichter Wald mit alten Ruinen und seltenen Ressourcen.',
+    },
+    {
+        id: 'ashen-coast',
+        name: 'Aschenküste',
+        x: 23,
+        y: 69,
+        description: 'Gefährliche Küstenregion, bekannt für Piraten und verlorene Schätze.',
+    },
+];
 
 const selectedRace = computed(() => {
     return races.value.find((race) => race.name === characterForm.race);
@@ -580,6 +611,23 @@ onBeforeUnmount(() => {
                                 </div>
                             </li>
                         </ul>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm border-0 mt-4">
+                    <div class="card-body p-4">
+                        <div class="text-uppercase small text-muted mb-2" style="letter-spacing: 2px;">
+                            Weltkarte
+                        </div>
+                        <h5 class="card-title mb-2">Eldoria</h5>
+                        <p class="text-muted mb-3">
+                            Interaktive Karte mit Zoom, Drag und markierten Orten.
+                        </p>
+                        <InteractiveWorldMap
+                            src="/images/EldoriaMap.png"
+                            alt="Eldoria Weltkarte"
+                            :locations="mapLocations"
+                        />
                     </div>
                 </div>
 

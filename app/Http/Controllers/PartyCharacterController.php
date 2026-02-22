@@ -82,7 +82,7 @@ class PartyCharacterController extends Controller
             }
 
             $totalPoints = array_sum(array_map('intval', $talents));
-            $maxTotal = config('game.character_talent_point_pool', 35);
+            $maxTotal = config('game.character_talent_point_pool', 140);
             if ($totalPoints > $maxTotal) {
                 $validator->errors()->add('talents', "Du kannst maximal {$maxTotal} Talentpunkte verteilen.");
             }
