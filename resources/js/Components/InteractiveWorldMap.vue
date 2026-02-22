@@ -107,6 +107,9 @@ const onPointerDown = (event) => {
     if (event.pointerType === 'mouse' && event.button !== 0) {
         return;
     }
+    if (event.target instanceof Element && event.target.closest('.map-marker')) {
+        return;
+    }
     pointerState.value = {
         startX: event.clientX,
         startY: event.clientY,
