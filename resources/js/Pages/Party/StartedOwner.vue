@@ -1091,7 +1091,7 @@ onBeforeUnmount(() => {
                                 src="/images/EldoriaMap.png"
                                 alt="Eldoria Weltkarte"
                                 :locations="props.mapLocations"
-                                viewport-min-height="83vh"
+                                viewport-min-height="70vh"
                                 :show-controls="false"
                                 :show-details="false"
                             />
