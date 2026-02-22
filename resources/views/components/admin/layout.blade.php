@@ -63,6 +63,12 @@
                     <a href="{{ route('admin.users.index') }}" class="admin-nav-link {{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
                         User
                     </a>
+                    <a href="{{ route('admin.races.index') }}" class="admin-nav-link {{ request()->routeIs('admin.races.*') ? 'active' : '' }}">
+                        Völker
+                    </a>
+                    <a href="{{ route('admin.classes.index') }}" class="admin-nav-link {{ request()->routeIs('admin.classes.*') ? 'active' : '' }}">
+                        Klassen
+                    </a>
                 </nav>
 
                 <div class="mt-auto pt-3">

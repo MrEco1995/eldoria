@@ -17,6 +17,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             RaceSeeder::class,
+            CharacterClassSeeder::class,
             TalentSeeder::class,
             StarterWeaponSeeder::class,
             QuestSeeder::class,

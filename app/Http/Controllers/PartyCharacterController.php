@@ -6,6 +6,7 @@ use App\Models\Party;
 use App\Models\PartyCharacter;
 use App\Models\StarterWeapon;
 use App\Models\Talent;
+use App\Models\CharacterClass;
 use App\Jobs\GenerateCharacterImage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -65,6 +66,19 @@ class PartyCharacterController extends Controller
 
         foreach ($activeTalents as $talent) {
             $rules["talents.{$talent->key}"] = ['required', 'integer', 'min:0', 'max:'.$talent->max_points];
+        }
+
+        try {
+            if (CharacterClass::query()->where('is_active', true)->exists()) {
+                $rules['class_name'] = [
+                    'required',
+                    'string',
+                    'max:60',
+                    Rule::exists('character_classes', 'name')->where('is_active', true),
+                ];
+            }
+        } catch (\Throwable $exception) {
+            // Fallback to string validation if table is not available yet.
         }
 
         $validator = Validator::make($request->all(), $rules);

@@ -8,6 +8,7 @@ use App\Models\PartyNpcTradeOffer;
 use App\Models\PartyNpcTradeSellOffer;
 use App\Models\PartyTradeSession;
 use App\Models\PartyTalentRequest;
+use App\Models\CharacterClass;
 use App\Models\PointOfInterest;
 use App\Models\Race;
 use App\Models\Talent;
@@ -31,6 +32,7 @@ class PartyViewDataService
                 'expiresAt' => $invite->expires_at->toIso8601String(),
             ] : null,
             'races' => $this->loadRaces(),
+            'classes' => $this->loadClasses(),
             'talents' => $this->loadTalents(),
             'mapLocations' => $this->loadMapLocations(),
             'talentPointPool' => config('game.character_talent_point_pool', 140),
@@ -301,6 +303,37 @@ class PartyViewDataService
                 'goodWith' => $race->good_with ?? [],
                 'badWith' => $race->bad_with ?? [],
             ])->values();
+    }
+
+    private function loadClasses(): Collection
+    {
+        try {
+            $classes = CharacterClass::query()
+                ->where('is_active', true)
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->get(['name', 'description'])
+                ->map(fn ($entry) => [
+                    'name' => $entry->name,
+                    'description' => $entry->description,
+                ])
+                ->values();
+
+            if ($classes->isNotEmpty()) {
+                return $classes;
+            }
+        } catch (\Throwable $exception) {
+            // Fallback for environments without character_classes migration yet.
+        }
+
+        return collect([
+            ['name' => 'Magier', 'description' => null],
+            ['name' => 'Krieger', 'description' => null],
+            ['name' => 'Waldlaeufer', 'description' => null],
+            ['name' => 'Assassine', 'description' => null],
+            ['name' => 'Priester', 'description' => null],
+            ['name' => 'Barde', 'description' => null],
+        ]);
     }
 
     private function loadTalents(): Collection

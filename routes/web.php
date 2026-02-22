@@ -14,6 +14,8 @@ use App\Http\Controllers\PartyWalletTransactionController;
 use App\Http\Controllers\Admin\Auth\AuthenticatedSessionController as AdminAuthenticatedSessionController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
+use App\Http\Controllers\Admin\RaceController as AdminRaceController;
+use App\Http\Controllers\Admin\CharacterClassController as AdminCharacterClassController;
 use App\Http\Controllers\PublicMediaController;
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
@@ -133,6 +135,16 @@ Route::prefix($adminPrefix)->name('admin.')->group(function () use ($adminLoginP
     Route::middleware('admin.auth')->group(function () {
         Route::get('/dashboard', AdminDashboardController::class)->name('dashboard');
         Route::get('/users', [AdminUserController::class, 'index'])->name('users.index');
+        Route::get('/races', [AdminRaceController::class, 'index'])->name('races.index');
+        Route::post('/races', [AdminRaceController::class, 'store'])->name('races.store');
+        Route::get('/races/{race}/edit', [AdminRaceController::class, 'edit'])->name('races.edit');
+        Route::post('/races/{race}', [AdminRaceController::class, 'update'])->name('races.update');
+        Route::post('/races/{race}/toggle', [AdminRaceController::class, 'toggle'])->name('races.toggle');
+        Route::get('/classes', [AdminCharacterClassController::class, 'index'])->name('classes.index');
+        Route::post('/classes', [AdminCharacterClassController::class, 'store'])->name('classes.store');
+        Route::get('/classes/{characterClass}/edit', [AdminCharacterClassController::class, 'edit'])->name('classes.edit');
+        Route::post('/classes/{characterClass}', [AdminCharacterClassController::class, 'update'])->name('classes.update');
+        Route::post('/classes/{characterClass}/toggle', [AdminCharacterClassController::class, 'toggle'])->name('classes.toggle');
         Route::post('/logout', [AdminAuthenticatedSessionController::class, 'destroy'])->name('logout');
     });
 });

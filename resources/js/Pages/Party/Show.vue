@@ -33,6 +33,10 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    classes: {
+        type: Array,
+        default: () => [],
+    },
     mapLocations: {
         type: Array,
         default: () => [],
@@ -176,14 +180,13 @@ const submitCharacter = () => {
     });
 };
 
-const classes = [
-    'Magier',
-    'Krieger',
-    'Waldläufer',
-    'Assassine',
-    'Priester',
-    'Barde',
-];
+const classes = computed(() => {
+    if ((props.classes ?? []).length) {
+        return props.classes.map((entry) => entry.name);
+    }
+
+    return ['Magier', 'Krieger', 'Waldläufer', 'Assassine', 'Priester', 'Barde'];
+});
 
 const genders = [
     'Männlich',
