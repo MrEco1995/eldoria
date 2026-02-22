@@ -1,6 +1,14 @@
 ﻿<script setup>
 import DiceRoller from '@/Components/DiceRoller.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import CharacterTab from '@/Pages/Party/StartedMemberTabs/CharacterTab.vue';
+import InventoryTab from '@/Pages/Party/StartedMemberTabs/InventoryTab.vue';
+import NotesTab from '@/Pages/Party/StartedMemberTabs/NotesTab.vue';
+import NpcTradeTab from '@/Pages/Party/StartedMemberTabs/NpcTradeTab.vue';
+import ActiveTradeModal from '@/Pages/Party/StartedMemberTabs/ActiveTradeModal.vue';
+import NpcTradeModal from '@/Pages/Party/StartedMemberTabs/NpcTradeModal.vue';
+import TradePickerModal from '@/Pages/Party/StartedMemberTabs/TradePickerModal.vue';
+import WalletTransactionsModal from '@/Pages/Party/StartedMemberTabs/WalletTransactionsModal.vue';
 import { Head } from '@inertiajs/vue3';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
@@ -36,7 +44,7 @@ const npcSellForm = ref({
     amountCopper: 1,
 });
 const npcTradeStateList = ref([...(props.npcTradeOffers ?? [])]);
-const selectedNpcTradeOfferId = ref(props.npcTradeOffers?.[0]?.id ?? null);
+const selectedNpcTradeOfferId = ref((props.npcTradeOffers ?? []).find((entry) => Boolean(entry?.isOpen))?.id ?? null);
 const tradePickerOpen = ref(false);
 const tradeBusy = ref(false);
 const activeTradeModalOpen = ref(false);
@@ -72,14 +80,15 @@ watch(() => props.tradeSessions, (next) => {
 
 watch(() => props.npcTradeOffers, (nextOffers) => {
     npcTradeStateList.value = [...(nextOffers ?? [])];
-    if (!selectedNpcTradeOfferId.value && npcTradeStateList.value.length) {
-        selectedNpcTradeOfferId.value = npcTradeStateList.value[0].id;
+    const openOffers = npcTradeStateList.value.filter((entry) => Boolean(entry?.isOpen));
+    if (!selectedNpcTradeOfferId.value && openOffers.length) {
+        selectedNpcTradeOfferId.value = openOffers[0].id;
     }
     if (
         selectedNpcTradeOfferId.value
-        && !npcTradeStateList.value.some((entry) => Number(entry.id) === Number(selectedNpcTradeOfferId.value))
+        && !openOffers.some((entry) => Number(entry.id) === Number(selectedNpcTradeOfferId.value))
     ) {
-        selectedNpcTradeOfferId.value = npcTradeStateList.value[0]?.id ?? null;
+        selectedNpcTradeOfferId.value = openOffers[0]?.id ?? null;
     }
 }, { immediate: true });
 
@@ -165,7 +174,9 @@ const tradePartnerCharacter = computed(() => {
 });
 
 const npcTradeIsOpen = computed(() => Boolean(npcTradeState.value?.isOpen));
-const npcTradeMerchants = computed(() => npcTradeStateList.value ?? []);
+const npcTradeMerchants = computed(() => {
+    return (npcTradeStateList.value ?? []).filter((entry) => Boolean(entry?.isOpen));
+});
 const npcTradeActiveBySelf = computed(() => Number(npcTradeState.value?.activePartyCharacterId ?? 0) === currentCharacterId.value);
 const npcTradeActiveByOther = computed(() => (
     Number(npcTradeState.value?.activePartyCharacterId ?? 0) > 0
@@ -396,8 +407,16 @@ const onNpcTradeUpdated = (event) => {
         next.unshift(event.offer);
     }
     npcTradeStateList.value = next;
-    if (!selectedNpcTradeOfferId.value) {
-        selectedNpcTradeOfferId.value = Number(event.offer.id);
+    const openOffers = next.filter((entry) => Boolean(entry?.isOpen));
+    if (!selectedNpcTradeOfferId.value && openOffers.length) {
+        selectedNpcTradeOfferId.value = Number(openOffers[0].id);
+    }
+    if (
+        selectedNpcTradeOfferId.value
+        && !openOffers.some((entry) => Number(entry.id) === Number(selectedNpcTradeOfferId.value))
+    ) {
+        selectedNpcTradeOfferId.value = openOffers[0]?.id ?? null;
+        npcTradeModalOpen.value = false;
     }
 };
 
@@ -572,6 +591,64 @@ const acceptTrade = async (trade) => {
     } finally {
         tradeBusy.value = false;
     }
+};
+
+const openTradePickerModal = () => {
+    tradePickerOpen.value = true;
+};
+
+const closeTradePickerModal = () => {
+    tradePickerOpen.value = false;
+};
+
+const openWalletModal = () => {
+    walletModalOpen.value = true;
+};
+
+const closeWalletModal = () => {
+    walletModalOpen.value = false;
+};
+
+const openActiveTradeModal = () => {
+    activeTradeModalOpen.value = true;
+};
+
+const closeActiveTradeModal = () => {
+    activeTradeModalOpen.value = false;
+};
+
+const selectNpcMerchant = (merchantId) => {
+    selectedNpcTradeOfferId.value = Number(merchantId);
+};
+
+const claimNpcMerchant = async (merchantId) => {
+    selectedNpcTradeOfferId.value = Number(merchantId);
+    await claimNpcTrade();
+};
+
+const openNpcMerchantTrade = (merchantId) => {
+    selectedNpcTradeOfferId.value = Number(merchantId);
+    npcTradeModalOpen.value = true;
+};
+
+const closeNpcTradeModal = () => {
+    npcTradeModalOpen.value = false;
+};
+
+const selectTradeTarget = (targetCharacterId) => {
+    selectedTradeTargetCharacterId.value = Number(targetCharacterId);
+};
+
+const handleNoteInput = (itemId, value) => {
+    noteDraftByItemId.value[String(itemId)] = value;
+};
+
+const handleNpcSellFormInput = (field, value) => {
+    npcSellForm.value[field] = value;
+};
+
+const handleNpcBuyQuantityInput = (itemId, quantity) => {
+    npcBuyQuantityByItemId.value[String(itemId)] = quantity;
 };
 
 const markItemSeen = (itemId) => {
@@ -789,498 +866,124 @@ onBeforeUnmount(() => {
                 </div>
             </div>
 
-            <div v-if="activeTab === 'character'" class="row g-4">
-                <div class="col-12 col-xl-8">
-                    <div class="card shadow-sm border-0 eldoria-panel">
-                    <div class="card-body p-4 p-md-5">
-                        <div class="text-uppercase small text-muted mb-2 eldoria-kicker">Charakterbogen</div>
-                        <h3 class="h4 mb-3 eldoria-title">{{ character.name }}</h3>
+            <CharacterTab
+                v-if="activeTab === 'character'"
+                :character="character"
+                :display-character-image="displayCharacterImage"
+                :talent-groups="talentGroups"
+                :get-talent-value="getTalentValue"
+                :latest-my-request="latestMyRequest"
+                :modifier-label="modifierLabel"
+                :request-result-class="requestResultClass"
+                :request-result-text="requestResultText"
+                :is-rolled="isRolled"
+                :result-class="resultClass"
+                :result-text="resultText"
+                :rolling-keys="rollingKeys"
+                :on-roll-talent="rollTalent"
+                :handle-character-image-error="handleCharacterImageError"
+            />
 
-                        <div class="text-muted mb-3">{{ character.race }} · {{ character.class_name }} · {{ character.gender }}</div>
-                        <div class="text-muted mb-4">{{ character.age }} Jahre · {{ character.height_cm }} cm · {{ character.weight_kg }} kg</div>
+            <InventoryTab
+                v-else-if="activeTab === 'inventory'"
+                :character="character"
+                :wallet="wallet"
+                :trade-busy="tradeBusy"
+                :incoming-pending-trades="incomingPendingTrades"
+                :outgoing-pending-trades="outgoingPendingTrades"
+                :active-trade="activeTrade"
+                :trade-partner-character="tradePartnerCharacter"
+                :inventory-action-hint="inventoryActionHint"
+                :inventory-items="inventoryItems"
+                :inventory-busy="inventoryBusy"
+                :unseen-inventory-item-ids="unseenInventoryItemIds"
+                :is-usable-item="isUsableItem"
+                :is-note-editor-open="isNoteEditorOpen"
+                :note-draft-for="noteDraftFor"
+                :on-open-trade-picker="openTradePickerModal"
+                :on-open-wallet="openWalletModal"
+                :on-accept-trade="acceptTrade"
+                :on-open-active-trade="openActiveTradeModal"
+                :on-mark-item-seen="markItemSeen"
+                :on-toggle-note-editor="toggleNoteEditor"
+                :on-close-note-editor="closeNoteEditor"
+                :on-note-input="handleNoteInput"
+                :on-save-item-note="saveItemNote"
+                :on-use-item="useItem"
+            />
 
-                        <div class="mb-4">
-                            <div class="small text-uppercase text-muted mb-2 eldoria-kicker-soft">Traits</div>
-                            <div class="d-flex flex-wrap gap-2">
-                                <span v-for="trait in character.traits" :key="trait" class="badge text-bg-light border eldoria-trait">{{ trait }}</span>
-                            </div>
-                        </div>
+            <NpcTradeTab
+                v-else-if="activeTab === 'npc-trade'"
+                :npc-trade-merchants="npcTradeMerchants"
+                :selected-npc-trade-offer-id="selectedNpcTradeOfferId"
+                :current-character-id="currentCharacterId"
+                :npc-trade-busy="npcTradeBusy"
+                :on-select-merchant="selectNpcMerchant"
+                :on-claim-merchant="claimNpcMerchant"
+                :on-open-merchant="openNpcMerchantTrade"
+            />
 
-                        <div>
-                            <div class="small text-uppercase text-muted mb-2 eldoria-kicker-soft">Talente</div>
-                            <div class="row g-3">
-                                <div v-for="group in talentGroups" :key="group.category" class="col-12 col-lg-6">
-                                    <div class="border rounded p-3 bg-light-subtle h-100 eldoria-subpanel">
-                                        <div class="fw-semibold small mb-2 eldoria-subtitle">{{ group.category }}</div>
-                                        <div
-                                            v-for="talent in group.items"
-                                            :key="talent.key"
-                                            class="d-flex justify-content-between border rounded px-3 py-2 bg-white mb-2 eldoria-row"
-                                        >
-                                            <span>{{ talent.label }}</span>
-                                            <strong>{{ getTalentValue(talent.key) }}</strong>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <NotesTab v-else />
 
-                <div class="col-12 col-xl-4">
-                    <div class="card shadow-sm border-0 mb-4 eldoria-panel">
-                    <div class="card-body p-3">
-                        <img
-                            v-if="displayCharacterImage"
-                            :src="displayCharacterImage"
-                            :alt="`Charakterbild von ${character.name}`"
-                            class="img-fluid rounded border eldoria-portrait"
-                            @error="handleCharacterImageError"
-                        >
-                        <div v-else class="text-muted small">Kein Charakterbild verfügbar.</div>
-                    </div>
-                </div>
+            <TradePickerModal
+                :is-open="tradePickerOpen"
+                :available-trade-targets="availableTradeTargets"
+                :selected-trade-target-character-id="selectedTradeTargetCharacterId"
+                :trade-busy="tradeBusy"
+                :on-close="closeTradePickerModal"
+                :on-select-target="selectTradeTarget"
+                :on-start-trade="startTrade"
+            />
 
-                    <div class="card shadow-sm border-0 eldoria-panel">
-                    <div class="card-body p-4">
-                        <div class="text-uppercase small text-muted mb-2 eldoria-kicker">Anforderungen</div>
-                        <div v-if="!latestMyRequest" class="text-muted small">Keine Talentanforderungen vom Spielleiter.</div>
-                        <div v-else class="d-flex flex-column gap-2">
-                            <div class="border rounded p-3 bg-light-subtle eldoria-subpanel">
-                                <div class="small mb-2">
-                                    <strong>{{ latestMyRequest.ownerUserName }}</strong> fordert:
-                                    {{ latestMyRequest.talents.map((t) => t.label).join(', ') }}
-                                    <span class="text-muted"> · {{ modifierLabel(latestMyRequest) }}</span>
-                                </div>
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <span class="badge" :class="requestResultClass(latestMyRequest)">
-                                        {{ requestResultText(latestMyRequest) }}
-                                    </span>
-                                </div>
-                                <div class="d-flex flex-column gap-2">
-                                    <div
-                                        v-for="talent in latestMyRequest.talents"
-                                        :key="`${latestMyRequest.id}:${talent.key}`"
-                                        class="d-flex justify-content-between align-items-center gap-2 border rounded px-2 py-2 bg-white eldoria-row"
-                                    >
-                                        <div class="small">
-                                            <div class="fw-semibold">{{ talent.label }}</div>
-                                            <div v-if="isRolled(talent)" class="text-muted">
-                                                Wurf: {{ talent.rolledValue }} · Zielwert: {{ talent.targetValue }}
-                                            </div>
-                                        </div>
-                                        <div class="d-flex align-items-center gap-2">
-                                            <span class="badge" :class="resultClass(talent)">
-                                                {{ resultText(talent) }}
-                                            </span>
-                                            <button
-                                                type="button"
-                                                class="btn btn-sm btn-primary"
-                                                :disabled="isRolled(talent) || rollingKeys[`${latestMyRequest.id}:${talent.key}`]"
-                                                @click="rollTalent(latestMyRequest, talent)"
-                                            >
-                                                W20 würfeln
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+            <WalletTransactionsModal
+                :is-open="walletModalOpen"
+                :wallet-transactions="walletTransactions"
+                :wallet-type-labels="walletTypeLabels"
+                :wallet-type-badges="walletTypeBadges"
+                :normalize-wallet-type="normalizeWalletType"
+                :on-close="closeWalletModal"
+            />
 
-            <div v-else-if="activeTab === 'inventory'" class="card shadow-sm border-0 eldoria-panel">
-                <div class="card-body p-4 p-md-5">
-                    <div class="text-uppercase small text-muted mb-2 eldoria-kicker">Inventar</div>
-                    <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap mb-3">
-                        <h3 class="h5 mb-0 eldoria-title">Reiseausrüstung von {{ character.name }}</h3>
-                        <div class="d-flex align-items-center gap-2">
-                            <button type="button" class="btn btn-sm btn-outline-primary" @click="tradePickerOpen = true">
-                                Handel starten
-                            </button>
-                            <div class="wallet-bag-pill" title="Charakterbeutel" role="button" tabindex="0" @click="walletModalOpen = true">
-                                <span class="wallet-bag-icon" aria-hidden="true">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="M10.1 2h3.8l.5 2.2h-4.8L10.1 2zm-3 4.2h9.8c2.7 0 5 2.2 5 5v6.2c0 2.5-2 4.6-4.6 4.6H6.7c-2.5 0-4.6-2-4.6-4.6v-6.2c0-2.8 2.2-5 5-5zm1.2 4.1c0 .7.5 1.2 1.2 1.2h5c.7 0 1.2-.6 1.2-1.2s-.5-1.2-1.2-1.2h-5c-.7 0-1.2.5-1.2 1.2z"/>
-                                    </svg>
-                                </span>
-                                <span>{{ wallet?.display ?? '0G 0S 0K' }}</span>
-                            </div>
-                        </div>
-                    </div>
+            <ActiveTradeModal
+                :is-open="activeTradeModalOpen"
+                :active-trade="activeTrade"
+                :character="character"
+                :wallet="wallet"
+                :inventory-items="inventoryItems"
+                :trade-partner-character="tradePartnerCharacter"
+                :on-close="closeActiveTradeModal"
+            />
 
-                    <div v-if="incomingPendingTrades.length" class="alert alert-warning py-2 px-3 small mb-3">
-                        <div
-                            v-for="trade in incomingPendingTrades"
-                            :key="`incoming-${trade.id}`"
-                            class="d-flex justify-content-between align-items-center gap-2 flex-wrap"
-                        >
-                            <span>Handelsanfrage von {{ trade.initiatorName }}</span>
-                            <button type="button" class="btn btn-sm btn-primary" :disabled="tradeBusy" @click="acceptTrade(trade)">
-                                Annehmen
-                            </button>
-                        </div>
-                    </div>
-
-                    <div v-if="outgoingPendingTrades.length" class="alert alert-info py-2 px-3 small mb-3">
-                        Wartet auf Annahme:
-                        {{ outgoingPendingTrades.map((trade) => trade.counterpartyName).join(', ') }}
-                    </div>
-
-                    <div v-if="activeTrade" class="alert alert-success py-2 px-3 small mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
-                        <span>Aktiver Handel mit {{ tradePartnerCharacter?.user?.name ?? tradePartnerCharacter?.name ?? 'Partner' }}</span>
-                        <button type="button" class="btn btn-sm btn-outline-success" @click="activeTradeModalOpen = true">
-                            Handel öffnen
-                        </button>
-                    </div>
-
-
-                    <div v-if="tradePickerOpen" class="wallet-modal-backdrop" @click.self="tradePickerOpen = false">
-                        <div class="wallet-modal-card">
-                            <div class="d-flex justify-content-between align-items-center mb-3">
-                                <h4 class="h6 mb-0">Handel starten</h4>
-                                <button type="button" class="btn btn-sm btn-outline-secondary" @click="tradePickerOpen = false">
-                                    Schließen
-                                </button>
-                            </div>
-                            <div v-if="!availableTradeTargets.length" class="text-muted small">
-                                Kein Handelspartner verfügbar.
-                            </div>
-                            <div v-else class="d-flex flex-column gap-3">
-                                <select v-model="selectedTradeTargetCharacterId" class="form-select">
-                                    <option v-for="entry in availableTradeTargets" :key="entry.id" :value="entry.id">
-                                        {{ entry.user?.name ?? entry.name }}
-                                    </option>
-                                </select>
-                                <button type="button" class="btn btn-primary" :disabled="tradeBusy" @click="startTrade">
-                                    Anfrage senden
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div v-if="walletModalOpen" class="wallet-modal-backdrop" @click.self="walletModalOpen = false">
-                        <div class="wallet-modal-card">
-                            <div class="d-flex justify-content-between align-items-center mb-3">
-                                <h4 class="h6 mb-0">Wallet-Transaktionen</h4>
-                                <button type="button" class="btn btn-sm btn-outline-secondary" @click="walletModalOpen = false">
-                                    Schließen
-                                </button>
-                            </div>
-                            <div v-if="walletTransactions.length === 0" class="text-muted small">
-                                Noch keine Wallet-Transaktionen.
-                            </div>
-                            <div v-else class="d-flex flex-column gap-2">
-                                <div
-                                    v-for="tx in walletTransactions"
-                                    :key="tx.id"
-                                    class="wallet-transaction-row d-flex justify-content-between align-items-start gap-2"
-                                >
-                                    <div>
-                                        <div class="small fw-semibold">
-                                            {{ walletTypeLabels[normalizeWalletType(tx.type)] || tx.type }} · {{ tx.amountDisplay }}
-                                        </div>
-                                        <div class="small text-muted">
-                                            {{ tx.actorUserName || 'System' }}<span v-if="tx.note"> · {{ tx.note }}</span>
-                                        </div>
-                                    </div>
-                                    <span class="badge" :class="walletTypeBadges[normalizeWalletType(tx.type)] || 'text-bg-secondary'">
-                                        {{ normalizeWalletType(tx.type).toUpperCase() }}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div v-if="activeTradeModalOpen && activeTrade" class="wallet-modal-backdrop" @click.self="activeTradeModalOpen = false">
-                        <div class="trade-modal-card">
-                            <div class="d-flex justify-content-between align-items-center mb-3">
-                                <h4 class="h6 mb-0">Aktiver Handel</h4>
-                                <button type="button" class="btn btn-sm btn-outline-secondary" @click="activeTradeModalOpen = false">
-                                    Schließen
-                                </button>
-                            </div>
-                            <div class="row g-3">
-                                <div class="col-12 col-lg-6">
-                                    <div class="trade-column p-3 h-100">
-                                        <div class="fw-semibold mb-2">Du: {{ character.name }}</div>
-                                        <div class="small text-muted mb-2">Wallet: {{ wallet?.display ?? '0G 0S 0K' }}</div>
-                                        <div class="small text-uppercase text-muted mb-2">Dein Inventar</div>
-                                        <div v-if="inventoryItems.length === 0" class="small text-muted">Leer</div>
-                                        <ul v-else class="small mb-0 ps-3">
-                                            <li v-for="item in inventoryItems" :key="`self-trade-${item.id}`">
-                                                {{ item.name }} x{{ item.quantity }}
-                                            </li>
-                                        </ul>
-                                    </div>
-                                </div>
-                                <div class="col-12 col-lg-6">
-                                    <div class="trade-column p-3 h-100">
-                                        <div class="fw-semibold mb-2">
-                                            {{ tradePartnerCharacter?.name ?? 'Handelspartner' }}
-                                        </div>
-                                        <div class="small text-uppercase text-muted mb-2">Inventar Partner</div>
-                                        <div v-if="!(tradePartnerCharacter?.inventoryItems ?? []).length" class="small text-muted">Leer</div>
-                                        <ul v-else class="small mb-0 ps-3">
-                                            <li v-for="item in (tradePartnerCharacter?.inventoryItems ?? [])" :key="`partner-trade-${item.id}`">
-                                                {{ item.name }} x{{ item.quantity }}
-                                            </li>
-                                        </ul>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="bag-area p-3 p-md-4">
-                        <div class="bag-mouth mb-3">Jutebeutel</div>
-                        <div v-if="inventoryActionHint" class="alert alert-warning py-2 px-3 small mb-3">
-                            {{ inventoryActionHint }}
-                        </div>
-                        <div v-if="inventoryItems.length === 0" class="text-muted small">
-                            Dein Beutel ist leer.
-                        </div>
-                        <div v-else class="row g-2">
-                            <div v-for="item in inventoryItems" :key="item.id" class="col-12 col-md-6">
-                                <div class="bag-item d-flex justify-content-between align-items-start gap-2" @mouseenter="markItemSeen(item.id)">
-                                    <div>
-                                        <div class="fw-semibold d-flex align-items-center gap-2">
-                                            <span>{{ item.name }}</span>
-                                            <span v-if="unseenInventoryItemIds[String(item.id)]" class="inventory-unseen-dot" aria-hidden="true"></span>
-                                            <span class="note-tooltip-wrap">
-                                                <button
-                                                    type="button"
-                                                    class="inventory-note-icon"
-                                                    :class="{ 'has-note': item.notes }"
-                                                    aria-label="Notiz anzeigen oder bearbeiten"
-                                                    @click="toggleNoteEditor(item.id)"
-                                                >
-                                                    i
-                                                </button>
-                                                <span class="note-tooltip-content">
-                                                    {{ item.notes || 'Keine Notiz. Klicke auf das Icon zum Bearbeiten.' }}
-                                                </span>
-                                            </span>
-                                        </div>
-                                        <div class="small text-muted">
-                                            {{ item.category || 'Allgemein' }}
-                                        </div>
-                                        <div v-if="isNoteEditorOpen(item.id)" class="mt-2 d-flex gap-2">
-                                            <input
-                                                :value="noteDraftFor(item)"
-                                                type="text"
-                                                class="form-control form-control-sm"
-                                                placeholder="Notiz zu diesem Item"
-                                                @input="noteDraftByItemId[String(item.id)] = $event.target.value"
-                                            >
-                                            <button type="button" class="btn btn-sm btn-outline-primary" @click="saveItemNote(item)">
-                                                Notiz speichern
-                                            </button>
-                                            <button type="button" class="btn btn-sm btn-outline-secondary" @click="closeNoteEditor(item.id)">
-                                                Schließen
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div class="d-flex align-items-center gap-1">
-                                        <span class="px-2 small fw-semibold">{{ item.quantity }}</span>
-                                        <button
-                                            v-if="isUsableItem(item)"
-                                            type="button"
-                                            class="btn btn-sm btn-outline-success ms-1"
-                                            :disabled="inventoryBusy"
-                                            @click="useItem(item)"
-                                        >
-                                            Nutzen
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div v-else-if="activeTab === 'npc-trade'" class="card shadow-sm border-0 eldoria-panel">
-                <div class="card-body p-4 p-md-5">
-                    <div class="text-uppercase small text-muted mb-2 eldoria-kicker">NPC Handel</div>
-                    <div v-if="!npcTradeMerchants.length" class="text-muted small">Kein NPC konfiguriert.</div>
-                    <div v-else class="d-flex flex-column gap-2">
-                        <div
-                            v-for="merchant in npcTradeMerchants"
-                            :key="`member-merchant-tab-${merchant.id}`"
-                            class="alert py-2 px-3 small mb-0"
-                            :class="Number(selectedNpcTradeOfferId) === Number(merchant.id) ? 'alert-primary' : (merchant.isOpen ? 'alert-success' : 'alert-secondary')"
-                        >
-                            <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap">
-                                <span>
-                                    <strong>{{ merchant.name || `Händler ${merchant.id}` }}</strong>
-                                    <span class="text-muted"> · {{ merchant.isOpen ? 'freigegeben' : 'nicht freigegeben' }}</span>
-                                    <span v-if="merchant.activePartyCharacterId && Number(merchant.activePartyCharacterId) !== currentCharacterId" class="text-muted">
-                                        · belegt durch {{ merchant.activeCharacterName || 'anderen Spieler' }}
-                                    </span>
-                                </span>
-                                <div class="d-flex gap-2">
-                                    <button type="button" class="btn btn-sm btn-outline-secondary" @click="selectedNpcTradeOfferId = merchant.id">
-                                        Auswählen
-                                    </button>
-                                    <button
-                                        v-if="merchant.isOpen && Number(merchant.activePartyCharacterId || 0) === 0"
-                                        type="button"
-                                        class="btn btn-sm btn-primary"
-                                        :disabled="npcTradeBusy"
-                                        @click="selectedNpcTradeOfferId = merchant.id; claimNpcTrade()"
-                                    >
-                                        Mit NPC handeln
-                                    </button>
-                                    <button
-                                        v-if="Number(merchant.activePartyCharacterId || 0) === currentCharacterId"
-                                        type="button"
-                                        class="btn btn-sm btn-outline-success"
-                                        @click="selectedNpcTradeOfferId = merchant.id; npcTradeModalOpen = true"
-                                    >
-                                        NPC Handel öffnen
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div v-else class="card shadow-sm border-0 eldoria-panel">
-            <div class="card-body p-4 p-md-5">
-                <div class="text-uppercase small text-muted mb-2 eldoria-kicker">Notizen</div>
-                <h3 class="h5 mb-2 eldoria-title">Notizen werden vorbereitet</h3>
-                <p class="text-muted mb-0">Hier kannst du später Sitzungsnotizen, Namen und wichtige Hinweise sammeln.</p>
-            </div>
-        </div>
-
-            <div v-if="npcTradeModalOpen && npcTradeState && npcTradeActiveBySelf" class="wallet-modal-backdrop" @click.self="npcTradeModalOpen = false">
-                <div class="trade-modal-card">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h4 class="h6 mb-0">NPC Handel: {{ npcTradeState.name }}</h4>
-                        <div class="d-flex gap-2">
-                            <button type="button" class="btn btn-sm btn-outline-warning" :disabled="npcTradeBusy" @click="releaseNpcTrade">
-                                Verlassen
-                            </button>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" @click="npcTradeModalOpen = false">
-                                Schließen
-                            </button>
-                        </div>
-                    </div>
-                    <div class="row g-3">
-                        <div class="col-12 col-lg-6">
-                            <div class="trade-column p-3 h-100">
-                                <div class="fw-semibold mb-2">Du: {{ character.name }}</div>
-                                <div class="small text-muted mb-2">Wallet: {{ wallet?.display ?? '0G 0S 0K' }}</div>
-                                <div class="small text-uppercase text-muted mb-2">Dein Inventar</div>
-                                <div v-if="inventoryItems.length === 0" class="small text-muted">Leer</div>
-                                <ul v-else class="small mb-0 ps-3">
-                                    <li v-for="item in inventoryItems" :key="`self-npc-trade-${item.id}`">
-                                        {{ item.name }} x{{ item.quantity }}
-                                    </li>
-                                </ul>
-                                <hr class="my-3">
-                                <div class="small text-uppercase text-muted mb-2">Item an NPC verkaufen</div>
-                                <div v-if="!npcSellableInventoryItems.length" class="small text-muted">Kein Item zum Verkaufen.</div>
-                                <div v-else class="row g-2">
-                                    <div class="col-12">
-                                        <select v-model="npcSellForm.inventoryItemId" class="form-select form-select-sm">
-                                            <option v-for="entry in npcSellableInventoryItems" :key="`npc-sell-item-${entry.id}`" :value="entry.id">
-                                                {{ entry.name }} x{{ entry.quantity }}
-                                            </option>
-                                        </select>
-                                    </div>
-                                    <div class="col-4">
-                                        <input v-model.number="npcSellForm.quantity" type="number" min="1" class="form-control form-control-sm" placeholder="Menge">
-                                    </div>
-                                    <div class="col-8 d-flex gap-1">
-                                        <input v-model.number="npcSellForm.amountGold" type="number" min="0" class="form-control form-control-sm" placeholder="G">
-                                        <input v-model.number="npcSellForm.amountSilver" type="number" min="0" class="form-control form-control-sm" placeholder="S">
-                                        <input v-model.number="npcSellForm.amountCopper" type="number" min="0" class="form-control form-control-sm" placeholder="K">
-                                    </div>
-                                    <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-2">
-                                        <span class="small text-muted">Angebot: {{ formatCopper(npcSellAmountCopper) }}</span>
-                                        <button
-                                            type="button"
-                                            class="btn btn-sm btn-outline-primary"
-                                            :disabled="npcTradeBusy || npcSellAmountCopper <= 0 || !npcSellForm.inventoryItemId"
-                                            @click="submitNpcSellOffer"
-                                        >
-                                            Verkauf anbieten
-                                        </button>
-                                    </div>
-                                    <div
-                                        v-if="ownLastRejectedNpcSellOfferByInventoryItemId[String(npcSellForm.inventoryItemId)]"
-                                        class="col-12 small text-warning"
-                                    >
-                                        Letztes Angebot wurde abgelehnt:
-                                        {{ ownLastRejectedNpcSellOfferByInventoryItemId[String(npcSellForm.inventoryItemId)].amountDisplay }}.
-                                        Neuer Wert muss darunter liegen.
-                                    </div>
-                                </div>
-                                <div class="small text-uppercase text-muted mb-2 mt-3">Offene Verkaufsangebote</div>
-                                <div v-if="!ownPendingNpcSellOffers.length" class="small text-muted">Keine offenen Angebote.</div>
-                                <ul v-else class="small mb-0 ps-3">
-                                    <li v-for="offer in ownPendingNpcSellOffers" :key="`own-pending-sell-${offer.id}`">
-                                        {{ offer.itemName }} x{{ offer.quantity }} · {{ offer.amountDisplay }} (wartet auf Spielleiter)
-                                    </li>
-                                </ul>
-                            </div>
-                        </div>
-                        <div class="col-12 col-lg-6">
-                            <div class="trade-column p-3 h-100">
-                                <div class="fw-semibold mb-2">{{ npcTradeState.name }}</div>
-                                <div class="small text-uppercase text-muted mb-2">NPC Inventar</div>
-                                <div v-if="!(npcTradeState.items ?? []).length" class="small text-muted">Leer</div>
-                                <div v-else class="d-flex flex-column gap-2">
-                                    <div
-                                        v-for="item in (npcTradeState.items ?? [])"
-                                        :key="`npc-item-${item.id}`"
-                                        class="d-flex justify-content-between align-items-center gap-2 border rounded p-2 bg-white"
-                                    >
-                                        <div class="small">
-                                            <div class="fw-semibold">{{ item.name }} x{{ item.quantity }} · {{ item.priceDisplay }}</div>
-                                            <div class="text-muted">
-                                                {{ item.category || 'Allgemein' }}<span v-if="item.notes"> · {{ item.notes }}</span>
-                                            </div>
-                                        </div>
-                                        <div class="d-flex align-items-center gap-2">
-                                            <input
-                                                :value="npcBuyQuantityFor(item.id)"
-                                                type="number"
-                                                min="1"
-                                                :max="item.quantity"
-                                                class="form-control form-control-sm"
-                                                style="width: 88px;"
-                                                @input="npcBuyQuantityByItemId[String(item.id)] = Number($event.target.value || 1)"
-                                            >
-                                            <button
-                                                type="button"
-                                                class="btn btn-sm btn-primary"
-                                                :disabled="npcTradeBusy || npcBuyQuantityFor(item.id) > item.quantity || !hasEnoughForNpcItem(item)"
-                                                @click="buyNpcItem(item)"
-                                            >
-                                                Kaufen
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <NpcTradeModal
+                :is-open="npcTradeModalOpen"
+                :npc-trade-state="npcTradeState"
+                :npc-trade-active-by-self="npcTradeActiveBySelf"
+                :character="character"
+                :wallet="wallet"
+                :inventory-items="inventoryItems"
+                :npc-trade-busy="npcTradeBusy"
+                :npc-sellable-inventory-items="npcSellableInventoryItems"
+                :npc-sell-form="npcSellForm"
+                :npc-sell-amount-copper="npcSellAmountCopper"
+                :own-last-rejected-npc-sell-offer-by-inventory-item-id="ownLastRejectedNpcSellOfferByInventoryItemId"
+                :own-pending-npc-sell-offers="ownPendingNpcSellOffers"
+                :format-copper="formatCopper"
+                :npc-buy-quantity-for="npcBuyQuantityFor"
+                :has-enough-for-npc-item="hasEnoughForNpcItem"
+                :on-close="closeNpcTradeModal"
+                :on-release-npc-trade="releaseNpcTrade"
+                :on-sell-form-input="handleNpcSellFormInput"
+                :on-submit-npc-sell-offer="submitNpcSellOffer"
+                :on-npc-buy-quantity-input="handleNpcBuyQuantityInput"
+                :on-buy-npc-item="buyNpcItem"
+            />
         </div>
     </AuthenticatedLayout>
 
     <DiceRoller :party-id="party.id" />
 </template>
 
-<style scoped>
+<style>
 .eldoria-page {
     --eldoria-bg: #f6f1e5;
     --eldoria-paper: #fffdf8;
