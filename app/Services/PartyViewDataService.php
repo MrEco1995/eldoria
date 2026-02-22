@@ -58,29 +58,117 @@ class PartyViewDataService
 
     private function loadMapLocations(): Collection
     {
-        return PointOfInterest::query()
-            ->where('is_active', true)
-            ->orderBy('sort_order')
-            ->orderBy('name')
-            ->get([
-                'slug',
-                'name',
-                'type',
-                'x_percent',
-                'y_percent',
-                'min_zoom',
-                'description',
-            ])
-            ->map(fn ($location) => [
-                'id' => $location->slug,
-                'name' => $location->name,
-                'type' => $location->type,
-                'x' => (float) $location->x_percent,
-                'y' => (float) $location->y_percent,
-                'minZoom' => (float) $location->min_zoom,
-                'description' => $location->description,
-            ])
-            ->values();
+        try {
+            $locations = PointOfInterest::query()
+                ->where('is_active', true)
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->get([
+                    'slug',
+                    'name',
+                    'type',
+                    'x_percent',
+                    'y_percent',
+                    'min_zoom',
+                    'description',
+                ])
+                ->map(fn ($location) => [
+                    'id' => $location->slug,
+                    'name' => $location->name,
+                    'type' => $location->type,
+                    'x' => (float) $location->x_percent,
+                    'y' => (float) $location->y_percent,
+                    'minZoom' => (float) $location->min_zoom,
+                    'description' => $location->description,
+                ])
+                ->values();
+
+            if ($locations->isNotEmpty()) {
+                return $locations;
+            }
+        } catch (\Throwable $exception) {
+            // Fallback to defaults if migration/seed is missing.
+        }
+
+        return collect($this->defaultMapLocations());
+    }
+
+    private function defaultMapLocations(): array
+    {
+        return [
+            [
+                'id' => 'capital-eldoria',
+                'name' => 'Hauptstadt Eldoria',
+                'type' => 'landmark',
+                'x' => 49.0,
+                'y' => 44.0,
+                'minZoom' => 1.0,
+                'description' => 'Politisches Zentrum des Reiches und haeufigster Treffpunkt fuer neue Quests.',
+            ],
+            [
+                'id' => 'northwatch',
+                'name' => 'Nordwacht',
+                'type' => 'landmark',
+                'x' => 58.0,
+                'y' => 20.0,
+                'minZoom' => 1.0,
+                'description' => 'Festung an der noerdlichen Grenze. Hohe Praesenz von Wachen und Patrouillen.',
+            ],
+            [
+                'id' => 'silverwald',
+                'name' => 'Silberwald',
+                'type' => 'landmark',
+                'x' => 36.0,
+                'y' => 51.0,
+                'minZoom' => 1.0,
+                'description' => 'Dichter Wald mit alten Ruinen und seltenen Ressourcen.',
+            ],
+            [
+                'id' => 'ashen-coast',
+                'name' => 'Aschenkueste',
+                'type' => 'landmark',
+                'x' => 23.0,
+                'y' => 69.0,
+                'minZoom' => 1.0,
+                'description' => 'Gefaehrliche Kuestenregion, bekannt fuer Piraten und verlorene Schaetze.',
+            ],
+            [
+                'id' => 'falkengrund',
+                'name' => 'Falkengrund',
+                'type' => 'village',
+                'x' => 53.0,
+                'y' => 48.0,
+                'minZoom' => 1.7,
+                'description' => 'Kleines Dorf suedoestlich der Hauptstadt, bekannt fuer Pferde und Kurierdienste.',
+            ],
+            [
+                'id' => 'moorwinkel',
+                'name' => 'Moorwinkel',
+                'type' => 'village',
+                'x' => 41.0,
+                'y' => 58.0,
+                'minZoom' => 1.8,
+                'description' => 'Abgelegenes Siedlungsgebiet am Rand eines Nebelmoors.',
+            ],
+            [
+                'id' => 'sonnbruch',
+                'name' => 'Sonnbruch',
+                'type' => 'village',
+                'x' => 29.0,
+                'y' => 63.0,
+                'minZoom' => 2.0,
+                'description' => 'Fischerdorf mit kleinem Hafen und reger Kuestenfahrt.',
+            ],
+            [
+                'id' => 'steinkamm',
+                'name' => 'Steinkamm',
+                'type' => 'village',
+                'x' => 61.0,
+                'y' => 31.0,
+                'minZoom' => 2.1,
+                'description' => 'Bergweiler mit Erzschaechten und rauem Klima.',
+            ],
+        ];
     }
 
     private function loadActiveInvite(int $partyId): ?PartyInvite
