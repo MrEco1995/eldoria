@@ -63,6 +63,9 @@
                     <a href="{{ route('admin.users.index') }}" class="admin-nav-link {{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
                         User
                     </a>
+                    <a href="{{ route('admin.characters.index') }}" class="admin-nav-link {{ request()->routeIs('admin.characters.*') ? 'active' : '' }}">
+                        Charakter
+                    </a>
                     <a href="{{ route('admin.races.index') }}" class="admin-nav-link {{ request()->routeIs('admin.races.*') ? 'active' : '' }}">
                         Völker
                     </a>

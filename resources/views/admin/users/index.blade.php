@@ -17,6 +17,7 @@
                         <th>ID</th>
                         <th>Name</th>
                         <th>E-Mail</th>
+                        <th>Partys</th>
                         <th>Erstellt</th>
                     </tr>
                 </thead>
@@ -26,11 +27,34 @@
                             <td>{{ $user->id }}</td>
                             <td>{{ $user->name }}</td>
                             <td>{{ $user->email }}</td>
+                            <td>
+                                @php
+                                    $ownedPartyIds = $user->ownedParties->pluck('id')->all();
+                                    $memberParties = $user->parties->whereNotIn('id', $ownedPartyIds);
+                                @endphp
+
+                                @if ($user->ownedParties->isEmpty() && $memberParties->isEmpty())
+                                    <span class="text-muted small">Keine</span>
+                                @else
+                                    <div class="d-flex flex-wrap gap-1">
+                                        @foreach ($user->ownedParties as $party)
+                                            <span class="badge text-bg-warning">
+                                                {{ $party->name }} (Owner)
+                                            </span>
+                                        @endforeach
+                                        @foreach ($memberParties as $party)
+                                            <span class="badge text-bg-light border">
+                                                {{ $party->name }}
+                                            </span>
+                                        @endforeach
+                                    </div>
+                                @endif
+                            </td>
                             <td>{{ optional($user->created_at)->format('d.m.Y H:i') }}</td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="4" class="text-center text-muted py-3">Keine User gefunden.</td>
+                            <td colspan="5" class="text-center text-muted py-3">Keine User gefunden.</td>
                         </tr>
                     @endforelse
                 </tbody>

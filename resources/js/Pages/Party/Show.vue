@@ -180,13 +180,7 @@ const submitCharacter = () => {
     });
 };
 
-const classes = computed(() => {
-    if ((props.classes ?? []).length) {
-        return props.classes.map((entry) => entry.name);
-    }
-
-    return ['Magier', 'Krieger', 'Waldläufer', 'Assassine', 'Priester', 'Barde'];
-});
+const classes = computed(() => (props.classes ?? []).map((entry) => entry.name));
 
 const genders = [
     'Männlich',
@@ -366,9 +360,64 @@ const missingCharacterCount = computed(() => {
     return memberIds.filter((id) => !withCharacter.includes(id)).length;
 });
 
-const canViewCharacterDetails = (entry) => {
-    return Number(entry.user_id) === Number(authUserId.value);
+const selectedCharacterId = ref(null);
+
+const talentLabelByKey = computed(() => {
+    return Object.fromEntries((props.talents ?? []).map((talent) => [talent.key, talent.label]));
+});
+
+const selectedCharacterEntry = computed(() => {
+    return (props.characters ?? []).find((entry) => Number(entry.id) === Number(selectedCharacterId.value)) ?? null;
+});
+
+const selectedCharacterTalents = computed(() => {
+    if (!selectedCharacterEntry.value?.talents) {
+        return [];
+    }
+
+    return Object.entries(selectedCharacterEntry.value.talents)
+        .map(([key, value]) => ({
+            key,
+            label: talentLabelByKey.value[key] ?? key,
+            points: Number(value ?? 0),
+        }))
+        .filter((entry) => entry.points > 0)
+        .sort((a, b) => b.points - a.points || a.label.localeCompare(b.label));
+});
+
+const hasCharacterForUser = (userId) => {
+    return (props.characters ?? []).some((entry) => Number(entry.user?.id) === Number(userId));
 };
+
+const selectCharacter = (entry) => {
+    selectedCharacterId.value = entry.id;
+};
+
+const selectCharacterByUserId = (userId) => {
+    const target = (props.characters ?? []).find((entry) => Number(entry.user?.id) === Number(userId));
+    if (target) {
+        selectedCharacterId.value = target.id;
+    }
+};
+
+watch(
+    () => props.characters,
+    (nextCharacters) => {
+        if (!nextCharacters?.length) {
+            selectedCharacterId.value = null;
+            return;
+        }
+
+        const selectedExists = nextCharacters.some((entry) => Number(entry.id) === Number(selectedCharacterId.value));
+        if (selectedExists) {
+            return;
+        }
+
+        const own = nextCharacters.find((entry) => Number(entry.user?.id) === Number(authUserId.value));
+        selectedCharacterId.value = own?.id ?? nextCharacters[0].id;
+    },
+    { immediate: true },
+);
 
 const onReadyUpdated = (event) => {
     const target = membersState.value.find((member) => member.id === event.userId);

@@ -307,33 +307,16 @@ class PartyViewDataService
 
     private function loadClasses(): Collection
     {
-        try {
-            $classes = CharacterClass::query()
-                ->where('is_active', true)
-                ->orderBy('sort_order')
-                ->orderBy('name')
-                ->get(['name', 'description'])
-                ->map(fn ($entry) => [
-                    'name' => $entry->name,
-                    'description' => $entry->description,
-                ])
-                ->values();
-
-            if ($classes->isNotEmpty()) {
-                return $classes;
-            }
-        } catch (\Throwable $exception) {
-            // Fallback for environments without character_classes migration yet.
-        }
-
-        return collect([
-            ['name' => 'Magier', 'description' => null],
-            ['name' => 'Krieger', 'description' => null],
-            ['name' => 'Waldlaeufer', 'description' => null],
-            ['name' => 'Assassine', 'description' => null],
-            ['name' => 'Priester', 'description' => null],
-            ['name' => 'Barde', 'description' => null],
-        ]);
+        return CharacterClass::query()
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get(['name', 'description'])
+            ->map(fn ($entry) => [
+                'name' => $entry->name,
+                'description' => $entry->description,
+            ])
+            ->values();
     }
 
     private function loadTalents(): Collection

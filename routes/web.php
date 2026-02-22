@@ -16,6 +16,7 @@ use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Admin\RaceController as AdminRaceController;
 use App\Http\Controllers\Admin\CharacterClassController as AdminCharacterClassController;
+use App\Http\Controllers\Admin\CharacterController as AdminCharacterController;
 use App\Http\Controllers\PublicMediaController;
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
@@ -135,6 +136,8 @@ Route::prefix($adminPrefix)->name('admin.')->group(function () use ($adminLoginP
     Route::middleware('admin.auth')->group(function () {
         Route::get('/dashboard', AdminDashboardController::class)->name('dashboard');
         Route::get('/users', [AdminUserController::class, 'index'])->name('users.index');
+        Route::get('/characters', [AdminCharacterController::class, 'index'])->name('characters.index');
+        Route::get('/characters/{character}', [AdminCharacterController::class, 'show'])->name('characters.show');
         Route::get('/races', [AdminRaceController::class, 'index'])->name('races.index');
         Route::post('/races', [AdminRaceController::class, 'store'])->name('races.store');
         Route::get('/races/{race}/edit', [AdminRaceController::class, 'edit'])->name('races.edit');
