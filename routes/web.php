@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 $adminPrefix = trim((string) env('ADMIN_PATH_PREFIX', 'xpnp-2709'), '/');
-$adminLoginPath = trim((string) env('ADMIN_LOGIN_PATH', 'loign'), '/');
+$adminLoginPath = trim((string) env('ADMIN_LOGIN_PATH', 'login'), '/');
 
 Route::redirect('/login-blade', '/login')->name('login.blade');
 Route::redirect('/register-blade', '/register')->name('register.blade');
