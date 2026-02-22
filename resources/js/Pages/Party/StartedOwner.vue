@@ -1094,6 +1094,9 @@ onBeforeUnmount(() => {
                                 viewport-min-height="70vh"
                                 :show-controls="false"
                                 :show-details="false"
+                                :show-reset-overlay="true"
+                                :show-top-selection-info="true"
+                                :selection-info-timeout-ms="60000"
                             />
                         </div>
                     </div>

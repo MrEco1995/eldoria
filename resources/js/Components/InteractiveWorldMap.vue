@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, onBeforeUnmount, ref } from 'vue';
 
 const props = defineProps({
     src: {
@@ -26,6 +26,18 @@ const props = defineProps({
         type: Boolean,
         default: true,
     },
+    showResetOverlay: {
+        type: Boolean,
+        default: false,
+    },
+    showTopSelectionInfo: {
+        type: Boolean,
+        default: false,
+    },
+    selectionInfoTimeoutMs: {
+        type: Number,
+        default: 60000,
+    },
 });
 
 const emit = defineEmits(['select-location']);
@@ -38,6 +50,8 @@ const translateX = ref(0);
 const translateY = ref(0);
 const isDragging = ref(false);
 const selectedLocationId = ref(null);
+const topInfoVisible = ref(false);
+let selectionInfoTimeout = null;
 const pointerState = ref({
     startX: 0,
     startY: 0,
@@ -120,8 +134,33 @@ const onPointerEnd = (event) => {
 
 const selectLocation = (location) => {
     selectedLocationId.value = location.id;
+    if (props.showTopSelectionInfo) {
+        topInfoVisible.value = true;
+        if (selectionInfoTimeout) {
+            clearTimeout(selectionInfoTimeout);
+        }
+        selectionInfoTimeout = setTimeout(() => {
+            topInfoVisible.value = false;
+            selectionInfoTimeout = null;
+        }, Math.max(1000, Number(props.selectionInfoTimeoutMs || 60000)));
+    }
     emit('select-location', location);
 };
+
+const closeTopInfo = () => {
+    topInfoVisible.value = false;
+    if (selectionInfoTimeout) {
+        clearTimeout(selectionInfoTimeout);
+        selectionInfoTimeout = null;
+    }
+};
+
+onBeforeUnmount(() => {
+    if (selectionInfoTimeout) {
+        clearTimeout(selectionInfoTimeout);
+        selectionInfoTimeout = null;
+    }
+});
 </script>
 
 <template>
@@ -141,6 +180,25 @@ const selectLocation = (location) => {
         </div>
 
         <div
+            v-if="showTopSelectionInfo && selectedLocation && topInfoVisible"
+            class="alert alert-info d-flex justify-content-between align-items-start gap-2 mt-3 mb-0"
+            role="status"
+        >
+            <div>
+                <div class="fw-semibold">{{ selectedLocation.name }}</div>
+                <div class="small mb-0">
+                    {{ selectedLocation.description || 'Keine Beschreibung hinterlegt.' }}
+                </div>
+            </div>
+            <button
+                type="button"
+                class="btn-close"
+                aria-label="Schließen"
+                @click="closeTopInfo"
+            ></button>
+        </div>
+
+        <div
             ref="containerRef"
             class="map-viewport border rounded-3 overflow-hidden position-relative"
             :style="viewportStyle"
@@ -153,6 +211,15 @@ const selectLocation = (location) => {
         >
             <div class="map-canvas" :style="[transformStyle, canvasStyle]">
                 <img :src="src" :alt="alt" class="map-image" draggable="false" />
+
+                <button
+                    v-if="showResetOverlay"
+                    type="button"
+                    class="btn btn-sm btn-light map-overlay-reset"
+                    @click.stop="resetView"
+                >
+                    Reset
+                </button>
 
                 <button
                     v-for="location in visibleLocations"
@@ -225,6 +292,13 @@ const selectLocation = (location) => {
     flex-direction: column;
     align-items: center;
     gap: 0.2rem;
+}
+
+.map-overlay-reset {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    z-index: 25;
 }
 
 .marker-dot {
