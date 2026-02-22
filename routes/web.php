@@ -124,7 +124,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 });
 
 Route::prefix($adminPrefix)->name('admin.')->group(function () use ($adminLoginPath) {
-    Route::middleware('admin.guest')->group(function () {
+    Route::middleware('admin.guest')->group(function () use ($adminLoginPath) {
         Route::get("/{$adminLoginPath}", [AdminAuthenticatedSessionController::class, 'create'])->name('login');
         Route::post("/{$adminLoginPath}", [AdminAuthenticatedSessionController::class, 'store'])->name('login.store');
     });
