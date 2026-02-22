@@ -14,6 +14,18 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    viewportMinHeight: {
+        type: Number,
+        default: 500,
+    },
+    showControls: {
+        type: Boolean,
+        default: true,
+    },
+    showDetails: {
+        type: Boolean,
+        default: true,
+    },
 });
 
 const emit = defineEmits(['select-location']);
@@ -35,6 +47,10 @@ const pointerState = ref({
 
 const transformStyle = computed(() => ({
     transform: `translate(${translateX.value}px, ${translateY.value}px) scale(${scale.value})`,
+}));
+
+const viewportStyle = computed(() => ({
+    minHeight: `${props.viewportMinHeight}px`,
 }));
 
 const visibleLocations = computed(() => {
@@ -106,7 +122,7 @@ const selectLocation = (location) => {
 
 <template>
     <div class="interactive-map">
-        <div class="d-flex justify-content-between align-items-center gap-2 mb-3 flex-wrap">
+        <div v-if="showControls" class="d-flex justify-content-between align-items-center gap-2 mb-3 flex-wrap">
             <div class="small text-muted">
                 Scrollen zum Zoomen, ziehen zum Bewegen. Zoom: x{{ scale.toFixed(1) }}
                 <span v-if="hiddenSettlementCount" class="ms-2">
@@ -123,6 +139,7 @@ const selectLocation = (location) => {
         <div
             ref="containerRef"
             class="map-viewport border rounded-3 overflow-hidden position-relative"
+            :style="viewportStyle"
             @wheel="onWheel"
             @pointerdown="onPointerDown"
             @pointermove="onPointerMove"
@@ -152,7 +169,7 @@ const selectLocation = (location) => {
             </div>
         </div>
 
-        <div class="mt-3 p-3 rounded border bg-light-subtle">
+        <div v-if="showDetails" class="mt-3 p-3 rounded border bg-light-subtle">
             <div v-if="selectedLocation">
                 <div class="fw-semibold">{{ selectedLocation.name }}</div>
                 <div class="small text-muted">
@@ -169,7 +186,6 @@ const selectLocation = (location) => {
 <style scoped>
 .map-viewport {
     background: #0e1626;
-    min-height: 500px;
     touch-action: none;
     cursor: grab;
 }
@@ -181,7 +197,7 @@ const selectLocation = (location) => {
 .map-canvas {
     width: 100%;
     height: 100%;
-    min-height: 500px;
+    min-height: 100%;
     position: relative;
     transform-origin: center center;
     user-select: none;
