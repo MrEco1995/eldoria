@@ -15,8 +15,8 @@ const props = defineProps({
         default: () => [],
     },
     viewportMinHeight: {
-        type: Number,
-        default: 500,
+        type: String,
+        default: '70vh',
     },
     showControls: {
         type: Boolean,
@@ -50,11 +50,11 @@ const transformStyle = computed(() => ({
 }));
 
 const viewportStyle = computed(() => ({
-    minHeight: `${props.viewportMinHeight}px`,
+    minHeight: props.viewportMinHeight,
 }));
 
 const canvasStyle = computed(() => ({
-    minHeight: `${props.viewportMinHeight}px`,
+    minHeight: props.viewportMinHeight,
 }));
 
 const visibleLocations = computed(() => {

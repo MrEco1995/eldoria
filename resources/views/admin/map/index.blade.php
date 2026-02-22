@@ -184,7 +184,7 @@
 
     <style>
         .poi-map {
-            min-height: 560px;
+            min-height: 70vh;
             background: #0b1220;
         }
         .poi-marker {

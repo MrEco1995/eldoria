@@ -993,14 +993,14 @@ onBeforeUnmount(() => {
                 <div class="card-body p-4">
                     <div class="text-uppercase small text-muted mb-2 eldoria-kicker">Weltkarte</div>
                     <h3 class="h5 mb-3 eldoria-title">Eldoria</h3>
-                    <InteractiveWorldMap
-                        src="/images/EldoriaMap.png"
-                        alt="Eldoria Weltkarte"
-                        :locations="props.mapLocations"
-                        :viewport-min-height="560"
-                        :show-controls="false"
-                        :show-details="false"
-                    />
+                        <InteractiveWorldMap
+                            src="/images/EldoriaMap.png"
+                            alt="Eldoria Weltkarte"
+                            :locations="props.mapLocations"
+                        viewport-min-height="70vh"
+                            :show-controls="false"
+                            :show-details="false"
+                        />
                 </div>
             </div>
 
