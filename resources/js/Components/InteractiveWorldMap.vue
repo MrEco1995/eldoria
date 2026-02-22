@@ -53,6 +53,10 @@ const viewportStyle = computed(() => ({
     minHeight: `${props.viewportMinHeight}px`,
 }));
 
+const canvasStyle = computed(() => ({
+    minHeight: `${props.viewportMinHeight}px`,
+}));
+
 const visibleLocations = computed(() => {
     return props.locations.filter((entry) => Number(entry?.minZoom ?? 1) <= scale.value);
 });
@@ -147,7 +151,7 @@ const selectLocation = (location) => {
             @pointercancel="onPointerEnd"
             @pointerleave="onPointerEnd"
         >
-            <div class="map-canvas" :style="transformStyle">
+            <div class="map-canvas" :style="[transformStyle, canvasStyle]">
                 <img :src="src" :alt="alt" class="map-image" draggable="false" />
 
                 <button
@@ -197,7 +201,7 @@ const selectLocation = (location) => {
 .map-canvas {
     width: 100%;
     height: 100%;
-    min-height: 100%;
+    min-height: inherit;
     position: relative;
     transform-origin: center center;
     user-select: none;
