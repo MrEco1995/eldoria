@@ -8,6 +8,7 @@ use App\Models\PartyNpcTradeOffer;
 use App\Models\PartyNpcTradeSellOffer;
 use App\Models\PartyTradeSession;
 use App\Models\PartyTalentRequest;
+use App\Models\Quest;
 use App\Models\CharacterClass;
 use App\Models\PointOfInterest;
 use App\Models\Race;
@@ -55,6 +56,7 @@ class PartyViewDataService
             'tradeSessions' => $this->loadTradeSessions($party, $userId),
             'npcTradeOffers' => $this->loadNpcTradeOffers($party),
             'mapLocations' => $this->loadMapLocations(),
+            'activeQuest' => $this->loadActiveQuest(),
         ];
     }
 
@@ -93,6 +95,66 @@ class PartyViewDataService
         }
 
         return collect($this->defaultMapLocations());
+    }
+
+    private function loadActiveQuest(): ?array
+    {
+        try {
+            $quest = Quest::query()
+                ->where('is_active', true)
+                ->orderBy('sort_order')
+                ->orderBy('id')
+                ->first();
+
+            if ($quest) {
+                return [
+                    'id' => (int) $quest->id,
+                    'key' => $quest->key,
+                    'title' => $quest->title,
+                    'location' => $quest->location,
+                    'mood' => $quest->mood,
+                    'intro' => $quest->intro,
+                    'reward' => $quest->reward,
+                    'act1' => $quest->act_1,
+                    'act2' => $quest->act_2,
+                    'act3' => $quest->act_3,
+                    'decisionPoint' => $quest->decision_point,
+                    'endingRelease' => $quest->ending_release,
+                    'endingCapture' => $quest->ending_capture,
+                    'nextQuestReleaseTitle' => $quest->next_quest_release_title,
+                    'nextQuestCaptureTitle' => $quest->next_quest_capture_title,
+                    'recommendedPartyLevel' => $quest->recommended_party_level,
+                    'difficulty' => $quest->difficulty,
+                ];
+            }
+        } catch (\Throwable $exception) {
+            // Fallback below keeps started views functional without migration.
+        }
+
+        return $this->defaultActiveQuest();
+    }
+
+    private function defaultActiveQuest(): array
+    {
+        return [
+            'id' => 0,
+            'key' => 'q01_die_verschwundene_holzfaellerin',
+            'title' => 'Die verschwundene Holzfaellerin',
+            'location' => 'Ein kleines Dorf am Rand des Waldes der Sylvarin',
+            'mood' => 'Unruhig, aber noch kein Krieg. Nur Angst.',
+            'intro' => "Im Dorf Eichenfurt ist eine junge Holzfaellerin namens Mara seit zwei Tagen verschwunden.\nSie ging wie gewohnt in den Wald.\nIhr Hund kam allein zurueck.\nIn der Naehe wurden seltsame Spuren gefunden.\nDer Dorfaelteste bittet die Gruppe um Hilfe.",
+            'reward' => 'Etwas Gold, Unterkunft, Ruf.',
+            'act1' => "Die Gruppe findet:\n- Zerbrochene Aeste\n- Einen gefallenen Korb\n- Blut, aber nicht viel\n- Grosse, schwere Fussspuren\n\nDie Spuren fuehren tiefer in den Wald.\nOptional: Ein elfischer Beobachter verfolgt die Gruppe aus der Ferne.",
+            'act2' => "Die Gruppe entdeckt einen verletzten jungen Ork in einer alten Ruine.\nMara lebt, sie ist gefesselt, aber unverletzt.\nDer Ork erklaert: \"Ich wollte nicht toeten. Ich wollte reden.\"\n\nEr sagt:\n- Sein Stamm hungert.\n- Menschen haben Jagdgruende erweitert.\n- Er wollte Geiseln nehmen, um Verhandlungen zu erzwingen.\n- Er wurde selbst von etwas angegriffen.\n- Etwas anderes ist im Wald.",
+            'act3' => "Noch waehrend die Gruppe spricht, greift ein verwildertes Tier an: ein Wolf mit schwarzen Adern unter dem Fell.\nNach dem Kampf zeigt sich: Das Tier ist krank.\nDie Verderbnis kommt aus einem kleinen, dunklen Teich in der Naehe.\nUrsache ist ein instabiles Ueberbleibsel aus den Schattenjahren, schwach, aber gefaehrlich.",
+            'decisionPoint' => 'Die Gruppe muss entscheiden, was sie mit dem Ork tut.',
+            'endingRelease' => "Ende 1: Der Ork wird freigelassen.\nDie Gruppe ueberzeugt Mara, dass er sie nicht toeten wollte.\nSie helfen ihm zurueck in Richtung seines Stammes.\nKonsequenz: Das Dorf ist misstrauisch, der Orkstamm bemerkt die Geste.",
+            'endingCapture' => "Ende 2: Der Ork wird gefangen oder getoetet.\nDie Gruppe bringt ihn ins Dorf oder toetet ihn.\nMara ist gerettet, das Dorf ist zufrieden.\nDoch ein Ork-Spaeher hat alles beobachtet. Der Stamm glaubt an Verrat.",
+            'nextQuestReleaseTitle' => 'Gespraeche im Blutland',
+            'nextQuestCaptureTitle' => 'Das gebrochene Zeichen',
+            'recommendedPartyLevel' => 1,
+            'difficulty' => 2,
+        ];
     }
 
     private function defaultMapLocations(): array

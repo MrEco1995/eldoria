@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
             CharacterClassSeeder::class,
             TalentSeeder::class,
             StarterWeaponSeeder::class,
+            QuestSeeder::class,
             PointOfInterestSeeder::class,
             AdminSeeder::class,
         ]);

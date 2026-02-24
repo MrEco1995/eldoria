@@ -22,6 +22,7 @@ const props = defineProps({
     tradeSessions: { type: Array, default: () => [] },
     npcTradeOffers: { type: Array, default: () => [] },
     mapLocations: { type: Array, default: () => [] },
+    activeQuest: { type: Object, default: null },
 });
 
 const requestState = ref([...(props.talentRequests ?? [])]);
@@ -918,6 +919,16 @@ onBeforeUnmount(() => {
                             Karte
                         </button>
                     </li>
+                    <li v-if="props.activeQuest" class="nav-item" role="presentation">
+                        <button
+                            type="button"
+                            class="nav-link"
+                            :class="{ active: activeTab === 'quest' }"
+                            @click="activeTab = 'quest'"
+                        >
+                            Szenario
+                        </button>
+                    </li>
                     <li v-if="hasTravelJournal" class="nav-item" role="presentation">
                         <button
                             type="button"
@@ -1004,6 +1015,69 @@ onBeforeUnmount(() => {
                             :show-top-selection-info="true"
                             :selection-info-timeout-ms="60000"
                         />
+                </div>
+            </div>
+
+            <div v-else-if="activeTab === 'quest' && props.activeQuest" class="card shadow-sm border-0 eldoria-panel">
+                <div class="card-body p-4">
+                    <div class="text-uppercase small text-muted mb-2 eldoria-kicker">Einstiegsquest</div>
+                    <h3 class="h5 mb-2 eldoria-title">{{ props.activeQuest.title }}</h3>
+                    <div class="small text-muted mb-3">
+                        Level {{ props.activeQuest.recommendedPartyLevel ?? '-' }} · Schwierigkeit {{ props.activeQuest.difficulty ?? '-' }}
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="fw-semibold">Ort</div>
+                        <div class="quest-text">{{ props.activeQuest.location || '-' }}</div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="fw-semibold">Stimmung</div>
+                        <div class="quest-text">{{ props.activeQuest.mood || '-' }}</div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="fw-semibold">Ausgangssituation</div>
+                        <div class="quest-text">{{ props.activeQuest.intro || '-' }}</div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="fw-semibold">Belohnung</div>
+                        <div class="quest-text">{{ props.activeQuest.reward || '-' }}</div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="fw-semibold">Akt 1</div>
+                        <div class="quest-text">{{ props.activeQuest.act1 || '-' }}</div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="fw-semibold">Akt 2</div>
+                        <div class="quest-text">{{ props.activeQuest.act2 || '-' }}</div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="fw-semibold">Akt 3</div>
+                        <div class="quest-text">{{ props.activeQuest.act3 || '-' }}</div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="fw-semibold">Entscheidungspunkt</div>
+                        <div class="quest-text">{{ props.activeQuest.decisionPoint || '-' }}</div>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-12 col-lg-6">
+                            <div class="border rounded p-3 h-100 bg-light-subtle eldoria-subpanel">
+                                <div class="fw-semibold mb-2">Ende 1: Ork freilassen</div>
+                                <div class="quest-text">{{ props.activeQuest.endingRelease || '-' }}</div>
+                                <div v-if="props.activeQuest.nextQuestReleaseTitle" class="small text-muted mt-2">
+                                    Folgequest: {{ props.activeQuest.nextQuestReleaseTitle }}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-lg-6">
+                            <div class="border rounded p-3 h-100 bg-light-subtle eldoria-subpanel">
+                                <div class="fw-semibold mb-2">Ende 2: Ork fangen/toeten</div>
+                                <div class="quest-text">{{ props.activeQuest.endingCapture || '-' }}</div>
+                                <div v-if="props.activeQuest.nextQuestCaptureTitle" class="small text-muted mt-2">
+                                    Folgequest: {{ props.activeQuest.nextQuestCaptureTitle }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -1148,6 +1222,10 @@ onBeforeUnmount(() => {
     background: #f4ead9 !important;
     border-color: #d9c6a2 !important;
     color: #4f3a21 !important;
+}
+
+.quest-text {
+    white-space: pre-line;
 }
 
 .eldoria-portrait {

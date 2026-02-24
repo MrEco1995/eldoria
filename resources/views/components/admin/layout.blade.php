@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="de">
 <head>
     <meta charset="utf-8">
@@ -69,8 +69,11 @@
                     <a href="{{ route('admin.map.index') }}" class="admin-nav-link {{ request()->routeIs('admin.map.*') ? 'active' : '' }}">
                         Map
                     </a>
+                    <a href="{{ route('admin.quests.index') }}" class="admin-nav-link {{ request()->routeIs('admin.quests.*') ? 'active' : '' }}">
+                        Quests
+                    </a>
                     <a href="{{ route('admin.races.index') }}" class="admin-nav-link {{ request()->routeIs('admin.races.*') ? 'active' : '' }}">
-                        Völker
+                        VÃ¶lker
                     </a>
                     <a href="{{ route('admin.classes.index') }}" class="admin-nav-link {{ request()->routeIs('admin.classes.*') ? 'active' : '' }}">
                         Klassen
@@ -112,3 +115,4 @@
     @endif
 </body>
 </html>
+
