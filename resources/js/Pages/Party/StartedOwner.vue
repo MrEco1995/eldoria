@@ -1180,7 +1180,7 @@ onBeforeUnmount(() => {
                             <div class="row g-3">
                                 <div class="col-12 col-lg-6">
                                     <div class="border rounded p-3 h-100 bg-light-subtle eldoria-subpanel">
-                                        <div class="fw-semibold mb-2">Ende 1: Ork freilassen</div>
+                                        <div class="fw-semibold mb-2">{{ selectedQuest.endingReleaseLabel || 'Ende 1' }}</div>
                                         <div class="quest-text">{{ selectedQuest.endingRelease || '-' }}</div>
                                         <div v-if="selectedQuest.nextQuestReleaseTitle" class="small text-muted mt-2">
                                             Folgequest: {{ selectedQuest.nextQuestReleaseTitle }}
@@ -1189,7 +1189,7 @@ onBeforeUnmount(() => {
                                 </div>
                                 <div class="col-12 col-lg-6">
                                     <div class="border rounded p-3 h-100 bg-light-subtle eldoria-subpanel">
-                                        <div class="fw-semibold mb-2">Ende 2: Ork fangen/toeten</div>
+                                        <div class="fw-semibold mb-2">{{ selectedQuest.endingCaptureLabel || 'Ende 2' }}</div>
                                         <div class="quest-text">{{ selectedQuest.endingCapture || '-' }}</div>
                                         <div v-if="selectedQuest.nextQuestCaptureTitle" class="small text-muted mt-2">
                                             Folgequest: {{ selectedQuest.nextQuestCaptureTitle }}

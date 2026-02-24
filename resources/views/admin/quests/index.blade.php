@@ -46,9 +46,11 @@
                     <textarea name="decision_point" rows="2" class="form-control" placeholder="Entscheidungspunkt"></textarea>
                 </div>
                 <div class="col-12 col-md-6">
+                    <input name="ending_release_label" class="form-control mb-2" placeholder="Titel Ende 1">
                     <textarea name="ending_release" rows="4" class="form-control" placeholder="Ende 1"></textarea>
                 </div>
                 <div class="col-12 col-md-6">
+                    <input name="ending_capture_label" class="form-control mb-2" placeholder="Titel Ende 2">
                     <textarea name="ending_capture" rows="4" class="form-control" placeholder="Ende 2"></textarea>
                 </div>
                 <div class="col-12 col-md-6">

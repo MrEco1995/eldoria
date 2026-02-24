@@ -57,10 +57,14 @@
                     <textarea name="decision_point" rows="3" class="form-control">{{ old('decision_point', $quest->decision_point) }}</textarea>
                 </div>
                 <div class="col-12 col-md-6">
+                    <label class="form-label">Titel Ende 1</label>
+                    <input name="ending_release_label" class="form-control mb-2" value="{{ old('ending_release_label', $quest->ending_release_label) }}">
                     <label class="form-label">Ende 1</label>
                     <textarea name="ending_release" rows="8" class="form-control">{{ old('ending_release', $quest->ending_release) }}</textarea>
                 </div>
                 <div class="col-12 col-md-6">
+                    <label class="form-label">Titel Ende 2</label>
+                    <input name="ending_capture_label" class="form-control mb-2" value="{{ old('ending_capture_label', $quest->ending_capture_label) }}">
                     <label class="form-label">Ende 2</label>
                     <textarea name="ending_capture" rows="8" class="form-control">{{ old('ending_capture', $quest->ending_capture) }}</textarea>
                 </div>
