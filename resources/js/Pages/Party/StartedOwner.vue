@@ -71,7 +71,7 @@ const inventoryPresetCategories = [
     'Verbrauchbar',
     'Werkzeug',
     'Magie',
-    'Quest',
+    'Auftrag',
     'Sonstiges',
 ];
 
@@ -99,7 +99,7 @@ const inventoryPresetItemsByCategory = {
         { name: 'Runenstein', quantity: 1 },
         { name: 'Ätherkristall', quantity: 1 },
     ],
-    Quest: [
+    Auftrag: [
         { name: 'Versiegelter Brief', quantity: 1 },
         { name: 'Alte Karte', quantity: 1 },
     ],

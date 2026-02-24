@@ -105,7 +105,7 @@ class PartyViewDataService
                 'x' => 49.0,
                 'y' => 44.0,
                 'minZoom' => 1.0,
-                'description' => 'Politisches Zentrum des Reiches und haeufigster Treffpunkt fuer neue Quests.',
+                'description' => 'Politisches Zentrum des Reiches und haeufigster Treffpunkt fuer neue Auftraege.',
             ],
             [
                 'id' => 'northwatch',

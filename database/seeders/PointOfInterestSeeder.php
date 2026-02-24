@@ -17,7 +17,7 @@ class PointOfInterestSeeder extends Seeder
                 'x_percent' => 49.00,
                 'y_percent' => 44.00,
                 'min_zoom' => 1.00,
-                'description' => 'Politisches Zentrum des Reiches und haeufigster Treffpunkt fuer neue Quests.',
+                'description' => 'Politisches Zentrum des Reiches und haeufigster Treffpunkt fuer neue Auftraege.',
                 'sort_order' => 10,
             ],
             [
