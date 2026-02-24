@@ -128,6 +128,8 @@ class PartyController extends Controller
             return Inertia::render('Party/StartedOwner', $payload);
         }
 
+        unset($payload['activeQuest'], $payload['activeQuests']);
+
         $ownCharacter = collect($payload['characters'])->firstWhere('user_id', $userId);
         if (! $ownCharacter) {
             return redirect()

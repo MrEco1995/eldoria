@@ -73,7 +73,7 @@
                         Quests
                     </a>
                     <a href="{{ route('admin.races.index') }}" class="admin-nav-link {{ request()->routeIs('admin.races.*') ? 'active' : '' }}">
-                        VÃ¶lker
+                        Völker
                     </a>
                     <a href="{{ route('admin.classes.index') }}" class="admin-nav-link {{ request()->routeIs('admin.classes.*') ? 'active' : '' }}">
                         Klassen

@@ -56,7 +56,7 @@ class PartyViewDataService
             'tradeSessions' => $this->loadTradeSessions($party, $userId),
             'npcTradeOffers' => $this->loadNpcTradeOffers($party),
             'mapLocations' => $this->loadMapLocations(),
-            'activeQuest' => $this->loadActiveQuest(),
+            'activeQuests' => $this->loadActiveQuests(),
         ];
     }
 
@@ -97,46 +97,51 @@ class PartyViewDataService
         return collect($this->defaultMapLocations());
     }
 
-    private function loadActiveQuest(): ?array
+    private function loadActiveQuests(): array
     {
         try {
-            $quest = Quest::query()
+            $quests = Quest::query()
                 ->where('is_active', true)
                 ->orderBy('sort_order')
                 ->orderBy('id')
-                ->first();
+                ->get();
 
-            if ($quest) {
-                return [
-                    'id' => (int) $quest->id,
-                    'key' => $quest->key,
-                    'title' => $quest->title,
-                    'location' => $quest->location,
-                    'mood' => $quest->mood,
-                    'intro' => $quest->intro,
-                    'reward' => $quest->reward,
-                    'act1' => $quest->act_1,
-                    'act2' => $quest->act_2,
-                    'act3' => $quest->act_3,
-                    'decisionPoint' => $quest->decision_point,
-                    'endingRelease' => $quest->ending_release,
-                    'endingCapture' => $quest->ending_capture,
-                    'nextQuestReleaseTitle' => $quest->next_quest_release_title,
-                    'nextQuestCaptureTitle' => $quest->next_quest_capture_title,
-                    'recommendedPartyLevel' => $quest->recommended_party_level,
-                    'difficulty' => $quest->difficulty,
-                ];
+            if ($quests->isNotEmpty()) {
+                return $quests->map(fn ($quest) => $this->mapQuest($quest))->values()->all();
             }
         } catch (\Throwable $exception) {
             // Fallback below keeps started views functional without migration.
         }
 
-        return $this->defaultActiveQuest();
+        return $this->defaultActiveQuests();
     }
 
-    private function defaultActiveQuest(): array
+    private function mapQuest(Quest $quest): array
     {
         return [
+            'id' => (int) $quest->id,
+            'key' => $quest->key,
+            'title' => $quest->title,
+            'location' => $quest->location,
+            'mood' => $quest->mood,
+            'intro' => $quest->intro,
+            'reward' => $quest->reward,
+            'act1' => $quest->act_1,
+            'act2' => $quest->act_2,
+            'act3' => $quest->act_3,
+            'decisionPoint' => $quest->decision_point,
+            'endingRelease' => $quest->ending_release,
+            'endingCapture' => $quest->ending_capture,
+            'nextQuestReleaseTitle' => $quest->next_quest_release_title,
+            'nextQuestCaptureTitle' => $quest->next_quest_capture_title,
+            'recommendedPartyLevel' => $quest->recommended_party_level,
+            'difficulty' => $quest->difficulty,
+        ];
+    }
+
+    private function defaultActiveQuests(): array
+    {
+        return [[
             'id' => 0,
             'key' => 'q01_die_verschwundene_holzfaellerin',
             'title' => 'Die verschwundene Holzfaellerin',
@@ -154,7 +159,7 @@ class PartyViewDataService
             'nextQuestCaptureTitle' => 'Das gebrochene Zeichen',
             'recommendedPartyLevel' => 1,
             'difficulty' => 2,
-        ];
+        ]];
     }
 
     private function defaultMapLocations(): array

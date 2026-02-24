@@ -12,7 +12,7 @@ const props = defineProps({
     talentRequests: { type: Array, default: () => [] },
     npcTradeOffers: { type: Array, default: () => [] },
     mapLocations: { type: Array, default: () => [] },
-    activeQuest: { type: Object, default: null },
+    activeQuests: { type: Array, default: () => [] },
 });
 
 const page = usePage();
@@ -49,6 +49,7 @@ const walletForm = ref({
 const npcTradeBusy = ref(false);
 const npcTradeStateList = ref([...(props.npcTradeOffers ?? [])]);
 const selectedNpcTradeOfferId = ref(props.npcTradeOffers?.[0]?.id ?? null);
+const selectedQuestKey = ref((props.activeQuests ?? [])[0]?.key ?? null);
 const npcTradeSessionModalOpen = ref(false);
 const npcSellOfferBusy = ref(false);
 const npcTradeForm = ref({
@@ -181,6 +182,22 @@ const activeCharacter = computed(() => {
 const isNpcTradeTopTabActive = computed(() => activeCharacterId.value === NPC_TRADE_TOP_TAB);
 const isMapTopTabActive = computed(() => activeCharacterId.value === MAP_TOP_TAB);
 const isQuestTopTabActive = computed(() => activeCharacterId.value === QUEST_TOP_TAB);
+const selectedQuest = computed(() => {
+    const entries = props.activeQuests ?? [];
+    if (!entries.length) return null;
+    return entries.find((entry) => entry.key === selectedQuestKey.value) ?? entries[0];
+});
+
+watch(() => props.activeQuests, (next) => {
+    const entries = next ?? [];
+    if (!entries.length) {
+        selectedQuestKey.value = null;
+        return;
+    }
+    if (!entries.some((entry) => entry.key === selectedQuestKey.value)) {
+        selectedQuestKey.value = entries[0].key;
+    }
+}, { immediate: true });
 
 const walletTypeLabels = {
     in: 'IN',
@@ -911,7 +928,7 @@ onBeforeUnmount(() => {
                             Karte
                         </button>
                     </li>
-                    <li v-if="props.activeQuest" class="nav-item" role="presentation">
+                    <li v-if="(props.activeQuests ?? []).length" class="nav-item" role="presentation">
                         <button type="button" class="nav-link" :class="{ active: isQuestTopTabActive }" @click="activeCharacterId = QUEST_TOP_TAB">
                             Szenario
                         </button>
@@ -1108,62 +1125,74 @@ onBeforeUnmount(() => {
                             />
                         </div>
                     </div>
-                    <div v-else-if="isQuestTopTabActive && props.activeQuest" class="card shadow-sm border-0 eldoria-panel">
+                    <div v-else-if="isQuestTopTabActive && selectedQuest" class="card shadow-sm border-0 eldoria-panel">
                         <div class="card-body p-4 p-md-5">
-                            <div class="text-uppercase small text-muted mb-2 eldoria-kicker">Einstiegsquest</div>
-                            <h3 class="h5 mb-2 eldoria-title">{{ props.activeQuest.title }}</h3>
+                            <div class="text-uppercase small text-muted mb-2 eldoria-kicker">Startquests</div>
+                            <div class="d-flex flex-wrap gap-2 mb-3">
+                                <button
+                                    v-for="quest in props.activeQuests"
+                                    :key="quest.key"
+                                    type="button"
+                                    class="btn btn-sm"
+                                    :class="selectedQuestKey === quest.key ? 'btn-primary' : 'btn-outline-secondary'"
+                                    @click="selectedQuestKey = quest.key"
+                                >
+                                    {{ quest.title }}
+                                </button>
+                            </div>
+                            <h3 class="h5 mb-2 eldoria-title">{{ selectedQuest.title }}</h3>
                             <div class="small text-muted mb-3">
-                                Level {{ props.activeQuest.recommendedPartyLevel ?? '-' }} · Schwierigkeit {{ props.activeQuest.difficulty ?? '-' }}
+                                Level {{ selectedQuest.recommendedPartyLevel ?? '-' }} · Schwierigkeit {{ selectedQuest.difficulty ?? '-' }}
                             </div>
 
                             <div class="mb-3">
                                 <div class="fw-semibold">Ort</div>
-                                <div class="quest-text">{{ props.activeQuest.location || '-' }}</div>
+                                <div class="quest-text">{{ selectedQuest.location || '-' }}</div>
                             </div>
                             <div class="mb-3">
                                 <div class="fw-semibold">Stimmung</div>
-                                <div class="quest-text">{{ props.activeQuest.mood || '-' }}</div>
+                                <div class="quest-text">{{ selectedQuest.mood || '-' }}</div>
                             </div>
                             <div class="mb-3">
                                 <div class="fw-semibold">Ausgangssituation</div>
-                                <div class="quest-text">{{ props.activeQuest.intro || '-' }}</div>
+                                <div class="quest-text">{{ selectedQuest.intro || '-' }}</div>
                             </div>
                             <div class="mb-3">
                                 <div class="fw-semibold">Belohnung</div>
-                                <div class="quest-text">{{ props.activeQuest.reward || '-' }}</div>
+                                <div class="quest-text">{{ selectedQuest.reward || '-' }}</div>
                             </div>
                             <div class="mb-3">
                                 <div class="fw-semibold">Akt 1</div>
-                                <div class="quest-text">{{ props.activeQuest.act1 || '-' }}</div>
+                                <div class="quest-text">{{ selectedQuest.act1 || '-' }}</div>
                             </div>
                             <div class="mb-3">
                                 <div class="fw-semibold">Akt 2</div>
-                                <div class="quest-text">{{ props.activeQuest.act2 || '-' }}</div>
+                                <div class="quest-text">{{ selectedQuest.act2 || '-' }}</div>
                             </div>
                             <div class="mb-3">
                                 <div class="fw-semibold">Akt 3</div>
-                                <div class="quest-text">{{ props.activeQuest.act3 || '-' }}</div>
+                                <div class="quest-text">{{ selectedQuest.act3 || '-' }}</div>
                             </div>
                             <div class="mb-3">
                                 <div class="fw-semibold">Entscheidungspunkt</div>
-                                <div class="quest-text">{{ props.activeQuest.decisionPoint || '-' }}</div>
+                                <div class="quest-text">{{ selectedQuest.decisionPoint || '-' }}</div>
                             </div>
                             <div class="row g-3">
                                 <div class="col-12 col-lg-6">
                                     <div class="border rounded p-3 h-100 bg-light-subtle eldoria-subpanel">
                                         <div class="fw-semibold mb-2">Ende 1: Ork freilassen</div>
-                                        <div class="quest-text">{{ props.activeQuest.endingRelease || '-' }}</div>
-                                        <div v-if="props.activeQuest.nextQuestReleaseTitle" class="small text-muted mt-2">
-                                            Folgequest: {{ props.activeQuest.nextQuestReleaseTitle }}
+                                        <div class="quest-text">{{ selectedQuest.endingRelease || '-' }}</div>
+                                        <div v-if="selectedQuest.nextQuestReleaseTitle" class="small text-muted mt-2">
+                                            Folgequest: {{ selectedQuest.nextQuestReleaseTitle }}
                                         </div>
                                     </div>
                                 </div>
                                 <div class="col-12 col-lg-6">
                                     <div class="border rounded p-3 h-100 bg-light-subtle eldoria-subpanel">
                                         <div class="fw-semibold mb-2">Ende 2: Ork fangen/toeten</div>
-                                        <div class="quest-text">{{ props.activeQuest.endingCapture || '-' }}</div>
-                                        <div v-if="props.activeQuest.nextQuestCaptureTitle" class="small text-muted mt-2">
-                                            Folgequest: {{ props.activeQuest.nextQuestCaptureTitle }}
+                                        <div class="quest-text">{{ selectedQuest.endingCapture || '-' }}</div>
+                                        <div v-if="selectedQuest.nextQuestCaptureTitle" class="small text-muted mt-2">
+                                            Folgequest: {{ selectedQuest.nextQuestCaptureTitle }}
                                         </div>
                                     </div>
                                 </div>

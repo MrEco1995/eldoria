@@ -57,11 +57,11 @@
                     <textarea name="decision_point" rows="3" class="form-control">{{ old('decision_point', $quest->decision_point) }}</textarea>
                 </div>
                 <div class="col-12 col-md-6">
-                    <label class="form-label">Ende 1 (Freilassen)</label>
+                    <label class="form-label">Ende 1</label>
                     <textarea name="ending_release" rows="8" class="form-control">{{ old('ending_release', $quest->ending_release) }}</textarea>
                 </div>
                 <div class="col-12 col-md-6">
-                    <label class="form-label">Ende 2 (Fangen/Toeten)</label>
+                    <label class="form-label">Ende 2</label>
                     <textarea name="ending_capture" rows="8" class="form-control">{{ old('ending_capture', $quest->ending_capture) }}</textarea>
                 </div>
                 <div class="col-12 col-md-6">

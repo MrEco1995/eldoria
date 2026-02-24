@@ -46,10 +46,10 @@
                     <textarea name="decision_point" rows="2" class="form-control" placeholder="Entscheidungspunkt"></textarea>
                 </div>
                 <div class="col-12 col-md-6">
-                    <textarea name="ending_release" rows="4" class="form-control" placeholder="Ende 1 (Freilassen)"></textarea>
+                    <textarea name="ending_release" rows="4" class="form-control" placeholder="Ende 1"></textarea>
                 </div>
                 <div class="col-12 col-md-6">
-                    <textarea name="ending_capture" rows="4" class="form-control" placeholder="Ende 2 (Fangen/Toeten)"></textarea>
+                    <textarea name="ending_capture" rows="4" class="form-control" placeholder="Ende 2"></textarea>
                 </div>
                 <div class="col-12 col-md-6">
                     <input name="next_quest_release_title" class="form-control" placeholder="Folgequest bei Ende 1">
@@ -101,7 +101,7 @@
                                 </form>
                                 <form method="post" action="{{ route('admin.quests.destroy', $quest) }}" class="d-inline" onsubmit="return confirm('Wirklich loeschen?');">
                                     @csrf
-                                    <button type="submit" class="btn btn-sm btn-outline-danger">Loeschen</button>
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">Löschen</button>
                                 </form>
                             </td>
                         </tr>
