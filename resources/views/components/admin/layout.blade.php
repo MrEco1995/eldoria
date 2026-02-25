@@ -72,6 +72,9 @@
                     <a href="{{ route('admin.quests.index') }}" class="admin-nav-link {{ request()->routeIs('admin.quests.*') ? 'active' : '' }}">
                         Quests
                     </a>
+                    <a href="{{ route('admin.talents.index') }}" class="admin-nav-link {{ request()->routeIs('admin.talents.*') ? 'active' : '' }}">
+                        Talente
+                    </a>
                     <a href="{{ route('admin.races.index') }}" class="admin-nav-link {{ request()->routeIs('admin.races.*') ? 'active' : '' }}">
                         Völker
                     </a>
@@ -115,4 +118,3 @@
     @endif
 </body>
 </html>
-

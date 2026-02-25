@@ -19,6 +19,7 @@ use App\Http\Controllers\Admin\CharacterClassController as AdminCharacterClassCo
 use App\Http\Controllers\Admin\CharacterController as AdminCharacterController;
 use App\Http\Controllers\Admin\MapPointController as AdminMapPointController;
 use App\Http\Controllers\Admin\QuestController as AdminQuestController;
+use App\Http\Controllers\Admin\TalentController as AdminTalentController;
 use App\Http\Controllers\PublicMediaController;
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
@@ -151,6 +152,12 @@ Route::prefix($adminPrefix)->name('admin.')->group(function () use ($adminLoginP
         Route::post('/quests/{quest}', [AdminQuestController::class, 'update'])->name('quests.update');
         Route::post('/quests/{quest}/toggle', [AdminQuestController::class, 'toggle'])->name('quests.toggle');
         Route::post('/quests/{quest}/delete', [AdminQuestController::class, 'destroy'])->name('quests.destroy');
+        Route::get('/talents', [AdminTalentController::class, 'index'])->name('talents.index');
+        Route::post('/talents', [AdminTalentController::class, 'store'])->name('talents.store');
+        Route::get('/talents/{talent}/edit', [AdminTalentController::class, 'edit'])->name('talents.edit');
+        Route::post('/talents/{talent}', [AdminTalentController::class, 'update'])->name('talents.update');
+        Route::post('/talents/{talent}/toggle', [AdminTalentController::class, 'toggle'])->name('talents.toggle');
+        Route::post('/talents/{talent}/delete', [AdminTalentController::class, 'destroy'])->name('talents.destroy');
         Route::get('/races', [AdminRaceController::class, 'index'])->name('races.index');
         Route::post('/races', [AdminRaceController::class, 'store'])->name('races.store');
         Route::get('/races/{race}/edit', [AdminRaceController::class, 'edit'])->name('races.edit');
