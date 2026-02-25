@@ -1,6 +1,7 @@
 ﻿<script setup>
 import DiceRoller from '@/Components/DiceRoller.vue';
 import InteractiveWorldMap from '@/Components/InteractiveWorldMap.vue';
+import YouAreDeadOverlay from '@/Components/YouAreDeadOverlay.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import CharacterTab from '@/Pages/Party/StartedMemberTabs/CharacterTab.vue';
 import InventoryTab from '@/Pages/Party/StartedMemberTabs/InventoryTab.vue';
@@ -120,6 +121,7 @@ const characterWithHp = computed(() => ({
     hpCurrent: Number(hpState.value.hpCurrent ?? 0),
     hpTemp: Number(hpState.value.hpTemp ?? 0),
 }));
+const isCharacterDead = computed(() => Number(characterWithHp.value?.hpCurrent ?? 0) <= 0);
 
 const talentGroups = computed(() => {
     const groups = new Map();
@@ -263,6 +265,14 @@ watch(hasMapItem, (hasMap) => {
     if (!hasMap && activeTab.value === 'map') {
         activeTab.value = 'inventory';
     }
+}, { immediate: true });
+
+watch(isCharacterDead, (isDead) => {
+    if (!isDead) return;
+    walletModalOpen.value = false;
+    npcTradeModalOpen.value = false;
+    tradePickerOpen.value = false;
+    activeTradeModalOpen.value = false;
 }, { immediate: true });
 
 const normalizeWalletType = (type) => {
@@ -1100,9 +1110,11 @@ onBeforeUnmount(() => {
                 :on-buy-npc-item="buyNpcItem"
             />
         </div>
+
+        <YouAreDeadOverlay :show="isCharacterDead" message="Du bist Tot" />
     </AuthenticatedLayout>
 
-    <DiceRoller :party-id="party.id" />
+    <DiceRoller v-if="!isCharacterDead" :party-id="party.id" />
 </template>
 
 <style>

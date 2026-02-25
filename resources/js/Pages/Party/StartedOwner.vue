@@ -368,6 +368,7 @@ const hpBarClass = computed(() => {
     if (hpRatio.value <= 60) return 'bg-warning';
     return 'bg-success';
 });
+const isCharacterDead = (character) => Number(character?.hpCurrent ?? 0) <= 0;
 
 const updateHp = async (action, amount = 0) => {
     if (!activeCharacter.value?.id || hpActionBusy.value) return;
@@ -967,6 +968,7 @@ onBeforeUnmount(() => {
                     <li v-for="entry in playerCharacters" :key="entry.id" class="nav-item" role="presentation">
                         <button type="button" class="nav-link" :class="{ active: activeCharacterId === entry.id }" @click="activeCharacterId = entry.id">
                             {{ entry.user.name }}
+                            <span v-if="isCharacterDead(entry)" class="badge text-bg-danger ms-2">Tot</span>
                         </button>
                     </li>
                     </ul>
@@ -1329,6 +1331,9 @@ onBeforeUnmount(() => {
                                 <div class="d-flex justify-content-between small mb-1">
                                     <strong>HP {{ activeCharacter.hpCurrent ?? 0 }} / {{ activeCharacter.hpMax ?? 0 }}</strong>
                                     <span v-if="(activeCharacter.hpTemp ?? 0) > 0">Temp +{{ activeCharacter.hpTemp }}</span>
+                                </div>
+                                <div v-if="isCharacterDead(activeCharacter)" class="small text-danger fw-semibold mb-2">
+                                    Spieler ist Tot
                                 </div>
                                 <div class="progress hp-progress mb-2">
                                     <div class="progress-bar" :class="hpBarClass" role="progressbar" :style="{ width: `${hpRatio}%` }"></div>
