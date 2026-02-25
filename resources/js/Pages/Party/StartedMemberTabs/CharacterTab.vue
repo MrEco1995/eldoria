@@ -41,8 +41,8 @@ defineProps({
                     <div class="text-uppercase small text-muted mb-2 eldoria-kicker">Charakterbogen</div>
                     <h3 class="h4 mb-3 eldoria-title">{{ character.name }}</h3>
 
-                    <div class="text-muted mb-3">{{ character.race }} · {{ character.class_name }} · {{ character.gender }}</div>
-                    <div class="text-muted mb-4">{{ character.age }} Jahre · {{ character.height_cm }} cm · {{ character.weight_kg }} kg</div>
+                    <div class="text-muted mb-3">{{ character.race }} Â· {{ character.class_name }} Â· {{ character.gender }}</div>
+                    <div class="text-muted mb-4">{{ character.age }} Jahre Â· {{ character.height_cm }} cm Â· {{ character.weight_kg }} kg</div>
                     <div class="mb-4">
                         <div class="d-flex justify-content-between small mb-1">
                             <strong>Temp HP</strong>
@@ -123,7 +123,7 @@ defineProps({
                             <div class="small mb-2">
                                 <strong>{{ latestMyRequest.ownerUserName }}</strong> fordert:
                                 {{ latestMyRequest.talents.map((t) => t.label).join(', ') }}
-                                <span class="text-muted"> · {{ modifierLabel(latestMyRequest) }}</span>
+                                <span class="text-muted"> ï¿½ {{ modifierLabel(latestMyRequest) }}</span>
                             </div>
                             <div class="d-flex justify-content-between align-items-center mb-2">
                                 <span class="badge" :class="requestResultClass(latestMyRequest)">
@@ -139,7 +139,7 @@ defineProps({
                                     <div class="small">
                                         <div class="fw-semibold">{{ talent.label }}</div>
                                         <div v-if="isRolled(talent)" class="text-muted">
-                                            Wurf: {{ talent.rolledValue }} · Zielwert: {{ talent.targetValue }}
+                                            Wurf: {{ talent.rolledValue }} ï¿½ Zielwert: {{ talent.targetValue }}
                                         </div>
                                     </div>
                                     <div class="d-flex align-items-center gap-2">
