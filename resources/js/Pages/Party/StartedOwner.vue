@@ -2,7 +2,7 @@
 import DiceRoller from '@/Components/DiceRoller.vue';
 import InteractiveWorldMap from '@/Components/InteractiveWorldMap.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, Link, usePage } from '@inertiajs/vue3';
+import { Head, Link } from '@inertiajs/vue3';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 const props = defineProps({
@@ -14,9 +14,6 @@ const props = defineProps({
     mapLocations: { type: Array, default: () => [] },
     activeQuests: { type: Array, default: () => [] },
 });
-
-const page = usePage();
-const ownerName = computed(() => page.props.auth?.user?.name ?? 'Spielleiter');
 
 const characterState = ref([...(props.characters ?? [])]);
 const playerCharacters = computed(() => characterState.value ?? []);
@@ -285,35 +282,16 @@ const sendTalentRequest = async () => {
     const modifier = ensureModifierState(targetUserId);
 
     try {
-        await window.axios.post(route('parties.talent-requests.store', props.party.id), {
+        const response = await window.axios.post(route('parties.talent-requests.store', props.party.id), {
             target_user_id: targetUserId,
             talents,
             modifier_type: modifier.type,
             modifier_points: modifier.type === 'none' ? 0 : Number(modifier.points || 0),
         });
 
-        const optimistic = {
-            id: Date.now(),
-            partyId: props.party.id,
-            ownerUserId: page.props.auth?.user?.id,
-            ownerUserName: ownerName.value,
-            targetUserId,
-            targetUserName: activeCharacter.value.user?.name ?? 'Spieler',
-            talents: talents.map((key) => {
-                const definition = (props.talentDefinitions ?? []).find((entry) => entry.key === key);
-                return { key, label: definition?.label ?? key };
-            }),
-            modifierType: modifier.type,
-            modifierPoints: modifier.type === 'none' ? 0 : Number(modifier.points || 0),
-            status: 'pending',
-            rolledTalentKey: null,
-            rolledValue: null,
-            targetValue: null,
-            isSuccess: null,
-            createdAt: new Date().toISOString(),
-            confirmedAt: null,
-        };
-        requestState.value.unshift(optimistic);
+        if (response?.data?.request) {
+            upsertRequest(response.data.request);
+        }
         selectedTalentsByUser.value[targetUserId] = [];
     } catch {
         // ignore; flash message handled server-side if available
