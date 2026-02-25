@@ -49,6 +49,7 @@ const selectedNpcTradeOfferId = ref(props.npcTradeOffers?.[0]?.id ?? null);
 const selectedQuestKey = ref((props.activeQuests ?? [])[0]?.key ?? null);
 const npcTradeSessionModalOpen = ref(false);
 const npcSellOfferBusy = ref(false);
+const hpActionBusy = ref(false);
 const npcTradeForm = ref({
     name: '',
     category: '',
@@ -336,6 +337,57 @@ const onWalletUpdated = (event) => {
     if (!event.partyCharacterId || !event.wallet) return;
 
     upsertWallet(event.partyCharacterId, event.wallet, event.transaction ?? null);
+};
+
+const applyHpToCharacter = (partyCharacterId, hp) => {
+    const index = characterState.value.findIndex((entry) => Number(entry.id) === Number(partyCharacterId));
+    if (index < 0) return;
+    characterState.value[index] = {
+        ...characterState.value[index],
+        hpMax: Number(hp.hpMax ?? characterState.value[index].hpMax ?? 0),
+        hpCurrent: Number(hp.hpCurrent ?? characterState.value[index].hpCurrent ?? 0),
+        hpTemp: Number(hp.hpTemp ?? characterState.value[index].hpTemp ?? 0),
+    };
+};
+
+const onCharacterHpUpdated = (event) => {
+    if (Number(event.partyId) !== Number(props.party.id)) return;
+    if (!event.partyCharacterId || !event.hp) return;
+    applyHpToCharacter(event.partyCharacterId, event.hp);
+};
+
+const hpRatio = computed(() => {
+    const max = Number(activeCharacter.value?.hpMax ?? 0);
+    const current = Number(activeCharacter.value?.hpCurrent ?? 0);
+    if (max <= 0) return 0;
+    return Math.max(0, Math.min(100, Math.round((current / max) * 100)));
+});
+
+const hpBarClass = computed(() => {
+    if (hpRatio.value <= 30) return 'bg-danger';
+    if (hpRatio.value <= 60) return 'bg-warning';
+    return 'bg-success';
+});
+
+const updateHp = async (action, amount = 0) => {
+    if (!activeCharacter.value?.id || hpActionBusy.value) return;
+    hpActionBusy.value = true;
+    try {
+        const response = await window.axios.post(route('parties.characters.hp.update', {
+            party: props.party.id,
+            partyCharacter: activeCharacter.value.id,
+        }), {
+            action,
+            amount,
+        });
+        if (response?.data?.hp) {
+            applyHpToCharacter(activeCharacter.value.id, response.data.hp);
+        }
+    } catch {
+        // ignore; backend handles validation/authorization
+    } finally {
+        hpActionBusy.value = false;
+    }
 };
 
 const modifierLabel = (request) => {
@@ -862,6 +914,7 @@ onMounted(() => {
         .listen('.party.talent-request.confirmed', onRequestConfirmed)
         .listen('.party.inventory-item.updated', onInventoryItemUpdated)
         .listen('.party.wallet.updated', onWalletUpdated)
+        .listen('.party.character-hp.updated', onCharacterHpUpdated)
         .listen('.party.npc-trade.updated', onNpcTradeUpdated);
 });
 
@@ -1272,6 +1325,23 @@ onBeforeUnmount(() => {
                             <h4 class="h5 mb-1">{{ activeCharacter.name }}</h4>
                             <div class="text-muted mb-2">{{ activeCharacter.race }} · {{ activeCharacter.class_name }} · {{ activeCharacter.gender }}</div>
                             <div class="text-muted mb-3">{{ activeCharacter.age }} Jahre · {{ activeCharacter.height_cm }} cm · {{ activeCharacter.weight_kg }} kg</div>
+                            <div class="mb-4">
+                                <div class="d-flex justify-content-between small mb-1">
+                                    <strong>HP {{ activeCharacter.hpCurrent ?? 0 }} / {{ activeCharacter.hpMax ?? 0 }}</strong>
+                                    <span v-if="(activeCharacter.hpTemp ?? 0) > 0">Temp +{{ activeCharacter.hpTemp }}</span>
+                                </div>
+                                <div class="progress hp-progress mb-2">
+                                    <div class="progress-bar" :class="hpBarClass" role="progressbar" :style="{ width: `${hpRatio}%` }"></div>
+                                </div>
+                                <div class="d-flex flex-wrap gap-2">
+                                    <button type="button" class="btn btn-sm btn-outline-danger" :disabled="hpActionBusy" @click="updateHp('damage', 1)">-1</button>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" :disabled="hpActionBusy" @click="updateHp('damage', 5)">-5</button>
+                                    <button type="button" class="btn btn-sm btn-outline-success" :disabled="hpActionBusy" @click="updateHp('heal', 1)">+1</button>
+                                    <button type="button" class="btn btn-sm btn-outline-success" :disabled="hpActionBusy" @click="updateHp('heal', 5)">+5</button>
+                                    <button type="button" class="btn btn-sm btn-outline-info" :disabled="hpActionBusy" @click="updateHp('add_temp', 5)">Temp +5</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" :disabled="hpActionBusy" @click="updateHp('reset_temp')">Temp reset</button>
+                                </div>
+                            </div>
 
                             <div class="mb-4">
                                 <div class="small text-uppercase text-muted mb-2 eldoria-kicker-soft">Traits</div>
@@ -1633,6 +1703,10 @@ onBeforeUnmount(() => {
 .eldoria-subpanel {
     border-color: var(--eldoria-border) !important;
     background: rgba(255, 252, 245, 0.86) !important;
+}
+
+.hp-progress {
+    height: 0.75rem;
 }
 
 .eldoria-row {

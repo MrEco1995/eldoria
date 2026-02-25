@@ -272,10 +272,11 @@ class PartyViewDataService
                     ->wherePivot('role', 'character')
                     ->latest('mediafiles.id'),
             ])
-            ->select('id', 'party_id', 'user_id', 'name', 'race', 'class_name', 'gender', 'age', 'height_cm', 'weight_kg', 'traits', 'talents')
+            ->select('id', 'party_id', 'user_id', 'name', 'race', 'class_name', 'gender', 'age', 'height_cm', 'weight_kg', 'traits', 'talents', 'hp_max', 'hp_current', 'hp_temp')
             ->get()
             ->map(function ($entry) {
                 $image = $entry->mediafiles->first();
+                $hp = $this->resolveCharacterHp($entry);
 
                 return [
                     'id' => $entry->id,
@@ -288,6 +289,9 @@ class PartyViewDataService
                     'age' => $entry->age,
                     'height_cm' => $entry->height_cm,
                     'weight_kg' => $entry->weight_kg,
+                    'hpMax' => $hp['hpMax'],
+                    'hpCurrent' => $hp['hpCurrent'],
+                    'hpTemp' => $hp['hpTemp'],
                     'traits' => $entry->traits ?? [],
                     'talents' => $entry->talents ?? [],
                     'user' => [
@@ -309,6 +313,32 @@ class PartyViewDataService
             });
     }
 
+    private function resolveCharacterHp($character): array
+    {
+        $hpMaxStored = (int) ($character->hp_max ?? 0);
+        $hpCurrentStored = (int) ($character->hp_current ?? 0);
+        $hpTempStored = max(0, (int) ($character->hp_temp ?? 0));
+
+        if ($hpMaxStored > 0) {
+            return [
+                'hpMax' => $hpMaxStored,
+                'hpCurrent' => max(0, min($hpMaxStored, $hpCurrentStored)),
+                'hpTemp' => $hpTempStored,
+            ];
+        }
+
+        $raceHpBase = (int) (Race::query()->where('name', $character->race)->value('hp_base') ?? 0);
+        $classHpBase = (int) (CharacterClass::query()->where('name', $character->class_name)->value('hp_base') ?? 0);
+        $ausdauer = (int) data_get($character->talents ?? [], 'ausdauer', 0);
+        $hpMax = max(1, $raceHpBase + $classHpBase + intdiv(max(0, $ausdauer), 2));
+
+        return [
+            'hpMax' => $hpMax,
+            'hpCurrent' => $hpMax,
+            'hpTemp' => 0,
+        ];
+    }
+
     private function mapShowCharacter(array $character): array
     {
         return [
@@ -320,6 +350,9 @@ class PartyViewDataService
             'age' => $character['age'],
             'height_cm' => $character['height_cm'],
             'weight_kg' => $character['weight_kg'],
+            'hpMax' => (int) ($character['hpMax'] ?? 0),
+            'hpCurrent' => (int) ($character['hpCurrent'] ?? 0),
+            'hpTemp' => (int) ($character['hpTemp'] ?? 0),
             'traits' => $character['traits'],
             'talents' => $character['talents'],
             'image_url' => $character['image_url'],
@@ -361,6 +394,7 @@ class PartyViewDataService
                 'age_text',
                 'height_text',
                 'weight_text',
+                'hp_base',
                 'good_with',
                 'bad_with',
             ])->map(fn ($race) => [
@@ -371,6 +405,7 @@ class PartyViewDataService
                 'age' => $race->age_text,
                 'height' => $race->height_text,
                 'weight' => $race->weight_text,
+                'hpBase' => (int) ($race->hp_base ?? 0),
                 'goodWith' => $race->good_with ?? [],
                 'badWith' => $race->bad_with ?? [],
             ])->values();
@@ -382,10 +417,11 @@ class PartyViewDataService
             ->where('is_active', true)
             ->orderBy('sort_order')
             ->orderBy('name')
-            ->get(['name', 'description'])
+            ->get(['name', 'description', 'hp_base'])
             ->map(fn ($entry) => [
                 'name' => $entry->name,
                 'description' => $entry->description,
+                'hpBase' => (int) ($entry->hp_base ?? 0),
             ])
             ->values();
     }

@@ -11,6 +11,7 @@ use App\Http\Controllers\PartyNpcTradeOfferController;
 use App\Http\Controllers\PartyTalentRequestController;
 use App\Http\Controllers\PartyTradeSessionController;
 use App\Http\Controllers\PartyWalletTransactionController;
+use App\Http\Controllers\PartyCharacterHpController;
 use App\Http\Controllers\Admin\Auth\AuthenticatedSessionController as AdminAuthenticatedSessionController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
@@ -88,6 +89,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('parties.members.remove');
     Route::post('/parties/{party}/characters', [PartyCharacterController::class, 'store'])
         ->name('parties.characters.store');
+    Route::post('/parties/{party}/characters/{partyCharacter}/hp', [PartyCharacterHpController::class, 'update'])
+        ->name('parties.characters.hp.update');
     Route::post('/parties/{party}/inventory-items', [PartyInventoryItemController::class, 'store'])
         ->name('parties.inventory-items.store');
     Route::patch('/parties/{party}/inventory-items/{inventoryItem}', [PartyInventoryItemController::class, 'update'])

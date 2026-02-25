@@ -12,8 +12,11 @@
                 <div class="col-12 col-md-4">
                     <input name="name" class="form-control" placeholder="Name" required>
                 </div>
-                <div class="col-12 col-md-5">
+                <div class="col-12 col-md-4">
                     <input name="description" class="form-control" placeholder="Beschreibung (optional)">
+                </div>
+                <div class="col-6 col-md-1">
+                    <input name="hp_base" type="number" min="0" class="form-control" placeholder="HP" required>
                 </div>
                 <div class="col-6 col-md-2">
                     <input name="sort_order" type="number" min="0" class="form-control" placeholder="Sortierung">
@@ -31,6 +34,7 @@
                 <thead class="table-light">
                     <tr>
                         <th>Name</th>
+                        <th>HP Base</th>
                         <th>Status</th>
                         <th>Sort</th>
                         <th>Beschreibung</th>
@@ -41,6 +45,7 @@
                     @forelse ($classes as $entry)
                         <tr>
                             <td>{{ $entry->name }}</td>
+                            <td>{{ $entry->hp_base }}</td>
                             <td>
                                 <span class="badge {{ $entry->is_active ? 'text-bg-success' : 'text-bg-secondary' }}">
                                     {{ $entry->is_active ? 'Aktiv' : 'Inaktiv' }}
@@ -60,7 +65,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="text-center text-muted py-3">Keine Klassen vorhanden.</td>
+                            <td colspan="6" class="text-center text-muted py-3">Keine Klassen vorhanden.</td>
                         </tr>
                     @endforelse
                 </tbody>

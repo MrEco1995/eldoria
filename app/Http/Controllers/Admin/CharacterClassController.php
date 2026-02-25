@@ -27,6 +27,7 @@ class CharacterClassController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120', Rule::unique('character_classes', 'name')],
             'description' => ['nullable', 'string'],
+            'hp_base' => ['required', 'integer', 'min:0', 'max:500'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
         ]);
 
@@ -34,6 +35,7 @@ class CharacterClassController extends Controller
             'name' => $data['name'],
             'slug' => $this->makeUniqueSlug($data['name']),
             'description' => $data['description'] ?? null,
+            'hp_base' => (int) $data['hp_base'],
             'is_active' => true,
             'sort_order' => (int) ($data['sort_order'] ?? 0),
         ]);
@@ -51,6 +53,7 @@ class CharacterClassController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120', Rule::unique('character_classes', 'name')->ignore($characterClass->id)],
             'description' => ['nullable', 'string'],
+            'hp_base' => ['required', 'integer', 'min:0', 'max:500'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
         ]);
 
@@ -58,6 +61,7 @@ class CharacterClassController extends Controller
             'name' => $data['name'],
             'slug' => $this->makeUniqueSlug($data['name'], $characterClass->id),
             'description' => $data['description'] ?? null,
+            'hp_base' => (int) $data['hp_base'],
             'sort_order' => (int) ($data['sort_order'] ?? 0),
         ]);
 

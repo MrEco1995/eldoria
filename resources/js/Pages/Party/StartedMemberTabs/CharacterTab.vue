@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 defineProps({
     character: { type: Object, required: true },
     displayCharacterImage: { type: String, default: null },
@@ -25,8 +25,24 @@ defineProps({
                     <div class="text-uppercase small text-muted mb-2 eldoria-kicker">Charakterbogen</div>
                     <h3 class="h4 mb-3 eldoria-title">{{ character.name }}</h3>
 
-                    <div class="text-muted mb-3">{{ character.race }} · {{ character.class_name }} · {{ character.gender }}</div>
-                    <div class="text-muted mb-4">{{ character.age }} Jahre · {{ character.height_cm }} cm · {{ character.weight_kg }} kg</div>
+                    <div class="text-muted mb-3">{{ character.race }} Â· {{ character.class_name }} Â· {{ character.gender }}</div>
+                    <div class="text-muted mb-4">{{ character.age }} Jahre Â· {{ character.height_cm }} cm Â· {{ character.weight_kg }} kg</div>
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between small mb-1">
+                            <strong>HP {{ character.hpCurrent ?? 0 }} / {{ character.hpMax ?? 0 }}</strong>
+                            <span v-if="(character.hpTemp ?? 0) > 0">Temp +{{ character.hpTemp }}</span>
+                        </div>
+                        <div class="progress" style="height: 0.75rem;">
+                            <div
+                                class="progress-bar"
+                                :class="(character.hpMax ?? 0) > 0 && ((character.hpCurrent ?? 0) / (character.hpMax ?? 1)) <= 0.3
+                                    ? 'bg-danger'
+                                    : ((character.hpMax ?? 0) > 0 && ((character.hpCurrent ?? 0) / (character.hpMax ?? 1)) <= 0.6 ? 'bg-warning' : 'bg-success')"
+                                role="progressbar"
+                                :style="{ width: `${Math.max(0, Math.min(100, Math.round(((character.hpCurrent ?? 0) / Math.max(1, character.hpMax ?? 1)) * 100)))}%` }"
+                            ></div>
+                        </div>
+                    </div>
 
                     <div class="mb-4">
                         <div class="small text-uppercase text-muted mb-2 eldoria-kicker-soft">Traits</div>
@@ -67,7 +83,7 @@ defineProps({
                         class="img-fluid rounded border eldoria-portrait"
                         @error="handleCharacterImageError"
                     >
-                    <div v-else class="text-muted small">Kein Charakterbild verfügbar.</div>
+                    <div v-else class="text-muted small">Kein Charakterbild verfÃ¼gbar.</div>
                 </div>
             </div>
 
@@ -80,7 +96,7 @@ defineProps({
                             <div class="small mb-2">
                                 <strong>{{ latestMyRequest.ownerUserName }}</strong> fordert:
                                 {{ latestMyRequest.talents.map((t) => t.label).join(', ') }}
-                                <span class="text-muted"> · {{ modifierLabel(latestMyRequest) }}</span>
+                                <span class="text-muted"> Â· {{ modifierLabel(latestMyRequest) }}</span>
                             </div>
                             <div class="d-flex justify-content-between align-items-center mb-2">
                                 <span class="badge" :class="requestResultClass(latestMyRequest)">
@@ -96,7 +112,7 @@ defineProps({
                                     <div class="small">
                                         <div class="fw-semibold">{{ talent.label }}</div>
                                         <div v-if="isRolled(talent)" class="text-muted">
-                                            Wurf: {{ talent.rolledValue }} · Zielwert: {{ talent.targetValue }}
+                                            Wurf: {{ talent.rolledValue }} Â· Zielwert: {{ talent.targetValue }}
                                         </div>
                                     </div>
                                     <div class="d-flex align-items-center gap-2">
@@ -109,7 +125,7 @@ defineProps({
                                             :disabled="isRolled(talent) || rollingKeys[`${latestMyRequest.id}:${talent.key}`]"
                                             @click="onRollTalent(latestMyRequest, talent)"
                                         >
-                                            W20 würfeln
+                                            W20 wÃ¼rfeln
                                         </button>
                                     </div>
                                 </div>
@@ -121,3 +137,4 @@ defineProps({
         </div>
     </div>
 </template>
+

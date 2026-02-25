@@ -171,10 +171,27 @@ class RaceSeeder extends Seeder
                 [
                     ...$race,
                     'slug' => Str::slug($race['name']),
+                    'hp_base' => $this->resolveHpBase($race['name']),
                     'is_active' => true,
                     'sort_order' => $index + 1,
                 ]
             );
         }
+    }
+
+    private function resolveHpBase(string $raceName): int
+    {
+        $normalized = (string) Str::of($raceName)->ascii()->lower();
+
+        return match (true) {
+            str_contains($normalized, 'mensch') => 14,
+            str_contains($normalized, 'elf') => 11,
+            str_contains($normalized, 'zwerg') => 18,
+            str_contains($normalized, 'ork') => 20,
+            str_contains($normalized, 'faelun') => 13,
+            str_contains($normalized, 'noctyr') => 12,
+            str_contains($normalized, 'tharokh') => 22,
+            default => 12,
+        };
     }
 }

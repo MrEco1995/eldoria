@@ -54,6 +54,11 @@ const tradeBusy = ref(false);
 const activeTradeModalOpen = ref(false);
 const selectedTradeTargetCharacterId = ref(null);
 const tradeSessionState = ref([...(props.tradeSessions ?? [])]);
+const hpState = ref({
+    hpMax: Number(props.character?.hpMax ?? 0),
+    hpCurrent: Number(props.character?.hpCurrent ?? 0),
+    hpTemp: Number(props.character?.hpTemp ?? 0),
+});
 
 const raceImageBaseMap = {
     Menschen: 'Mensch',
@@ -82,6 +87,14 @@ watch(() => props.tradeSessions, (next) => {
     tradeSessionState.value = [...(next ?? [])];
 }, { immediate: true });
 
+watch(() => props.character, (next) => {
+    hpState.value = {
+        hpMax: Number(next?.hpMax ?? 0),
+        hpCurrent: Number(next?.hpCurrent ?? 0),
+        hpTemp: Number(next?.hpTemp ?? 0),
+    };
+}, { immediate: true });
+
 watch(() => props.npcTradeOffers, (nextOffers) => {
     npcTradeStateList.value = [...(nextOffers ?? [])];
     const openOffers = npcTradeStateList.value.filter((entry) => Boolean(entry?.isOpen));
@@ -101,6 +114,12 @@ const npcTradeState = computed(() => {
 });
 
 const getTalentValue = (key) => Number(props.character?.talents?.[key] ?? 0);
+const characterWithHp = computed(() => ({
+    ...(props.character ?? {}),
+    hpMax: Number(hpState.value.hpMax ?? 0),
+    hpCurrent: Number(hpState.value.hpCurrent ?? 0),
+    hpTemp: Number(hpState.value.hpTemp ?? 0),
+}));
 
 const talentGroups = computed(() => {
     const groups = new Map();
@@ -449,6 +468,17 @@ const onNpcTradeUpdated = (event) => {
         selectedNpcTradeOfferId.value = openOffers[0]?.id ?? null;
         npcTradeModalOpen.value = false;
     }
+};
+
+const onCharacterHpUpdated = (event) => {
+    if (Number(event.partyId) !== Number(props.party.id)) return;
+    if (Number(event.partyCharacterId) !== Number(props.character.id)) return;
+    if (!event.hp) return;
+    hpState.value = {
+        hpMax: Number(event.hp.hpMax ?? hpState.value.hpMax ?? 0),
+        hpCurrent: Number(event.hp.hpCurrent ?? hpState.value.hpCurrent ?? 0),
+        hpTemp: Number(event.hp.hpTemp ?? hpState.value.hpTemp ?? 0),
+    };
 };
 
 const claimNpcTrade = async () => {
@@ -853,6 +883,7 @@ onMounted(() => {
         .listen('.party.talent-request.confirmed', onRequestConfirmed)
         .listen('.party.inventory-item.updated', onInventoryItemUpdated)
         .listen('.party.wallet.updated', onWalletUpdated)
+        .listen('.party.character-hp.updated', onCharacterHpUpdated)
         .listen('.party.trade.requested', onTradeRequested)
         .listen('.party.trade.accepted', onTradeAccepted)
         .listen('.party.npc-trade.updated', onNpcTradeUpdated);
@@ -934,7 +965,7 @@ onBeforeUnmount(() => {
 
             <CharacterTab
                 v-if="activeTab === 'character'"
-                :character="character"
+                :character="characterWithHp"
                 :display-character-image="displayCharacterImage"
                 :talent-groups="talentGroups"
                 :get-talent-value="getTalentValue"

@@ -7,6 +7,7 @@ use App\Models\PartyCharacter;
 use App\Models\StarterWeapon;
 use App\Models\Talent;
 use App\Models\CharacterClass;
+use App\Models\Race;
 use App\Jobs\GenerateCharacterImage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -116,6 +117,7 @@ class PartyCharacterController extends Controller
             'weight_kg' => $data['weight_kg'],
             'traits' => $data['traits'],
             'talents' => $data['talents'],
+            ...$this->buildHpSnapshot($data['race'], $data['class_name'], $data['talents']),
         ]);
 
         if ($character) {
@@ -127,6 +129,22 @@ class PartyCharacterController extends Controller
         return redirect()
             ->route('parties.show', $party)
             ->with('status', 'Charakter erstellt.');
+    }
+
+    private function buildHpSnapshot(string $raceName, string $className, array $talents): array
+    {
+        $raceHpBase = (int) (Race::query()->where('name', $raceName)->value('hp_base') ?? 0);
+        $classHpBase = (int) (CharacterClass::query()->where('name', $className)->value('hp_base') ?? 0);
+        $ausdauer = (int) ($talents['ausdauer'] ?? 0);
+        $ausdauerBonus = intdiv(max(0, $ausdauer), 2);
+
+        $hpMax = max(1, $raceHpBase + $classHpBase + $ausdauerBonus);
+
+        return [
+            'hp_max' => $hpMax,
+            'hp_current' => $hpMax,
+            'hp_temp' => 0,
+        ];
     }
 
     private function createStarterInventory(PartyCharacter $character): void

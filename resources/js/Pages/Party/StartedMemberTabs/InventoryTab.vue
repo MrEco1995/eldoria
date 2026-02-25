@@ -1,4 +1,6 @@
 <script setup>
+const isTravelJournalItem = (item) => String(item?.name ?? '').trim().toLowerCase() === 'reisetagebuch';
+
 defineProps({
     character: { type: Object, required: true },
     wallet: { type: Object, default: null },
@@ -88,7 +90,7 @@ defineProps({
                                 <div class="fw-semibold d-flex align-items-center gap-2">
                                     <span>{{ item.name }}</span>
                                     <span v-if="unseenInventoryItemIds[String(item.id)]" class="inventory-unseen-dot" aria-hidden="true"></span>
-                                    <span class="note-tooltip-wrap">
+                                    <span v-if="!isTravelJournalItem(item)" class="note-tooltip-wrap">
                                         <button
                                             type="button"
                                             class="inventory-note-icon"
@@ -106,7 +108,7 @@ defineProps({
                                 <div class="small text-muted">
                                     {{ item.category || 'Allgemein' }}
                                 </div>
-                                <div v-if="isNoteEditorOpen(item.id)" class="mt-2 d-flex gap-2">
+                                <div v-if="!isTravelJournalItem(item) && isNoteEditorOpen(item.id)" class="mt-2 d-flex gap-2">
                                     <input
                                         :value="noteDraftFor(item)"
                                         type="text"

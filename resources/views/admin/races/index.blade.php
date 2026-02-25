@@ -12,8 +12,11 @@
                 <div class="col-12 col-md-4">
                     <input name="name" class="form-control" placeholder="Name" required>
                 </div>
-                <div class="col-12 col-md-8">
+                <div class="col-12 col-md-6">
                     <input name="description" class="form-control" placeholder="Beschreibung" required>
+                </div>
+                <div class="col-12 col-md-2">
+                    <input name="hp_base" type="number" min="0" class="form-control" placeholder="HP Base" required>
                 </div>
                 <div class="col-12 col-md-4">
                     <input name="age_text" class="form-control" placeholder="Alter" required>
@@ -52,6 +55,7 @@
                 <thead class="table-light">
                     <tr>
                         <th>Name</th>
+                        <th>HP Base</th>
                         <th>Status</th>
                         <th>Sort</th>
                         <th>Beschreibung</th>
@@ -62,6 +66,7 @@
                     @forelse ($races as $race)
                         <tr>
                             <td>{{ $race->name }}</td>
+                            <td>{{ $race->hp_base }}</td>
                             <td>
                                 <span class="badge {{ $race->is_active ? 'text-bg-success' : 'text-bg-secondary' }}">
                                     {{ $race->is_active ? 'Aktiv' : 'Inaktiv' }}
@@ -81,7 +86,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="text-center text-muted py-3">Keine Völker vorhanden.</td>
+                            <td colspan="6" class="text-center text-muted py-3">Keine Völker vorhanden.</td>
                         </tr>
                     @endforelse
                 </tbody>

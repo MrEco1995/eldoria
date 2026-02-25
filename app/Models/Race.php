@@ -13,6 +13,7 @@ class Race extends Model
         'name',
         'slug',
         'description',
+        'hp_base',
         'essence',
         'appearance',
         'age_text',
@@ -29,6 +30,7 @@ class Race extends Model
         'appearance' => 'array',
         'good_with' => 'array',
         'bad_with' => 'array',
+        'hp_base' => 'integer',
         'is_active' => 'boolean',
     ];
 }

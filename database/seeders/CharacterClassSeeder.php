@@ -25,10 +25,26 @@ class CharacterClassSeeder extends Seeder
                 [
                     'slug' => Str::slug($class['name']),
                     'description' => $class['description'],
+                    'hp_base' => $this->resolveHpBase($class['name']),
                     'is_active' => true,
                     'sort_order' => $index + 1,
                 ]
             );
         }
+    }
+
+    private function resolveHpBase(string $className): int
+    {
+        $normalized = (string) Str::of($className)->ascii()->lower();
+
+        return match (true) {
+            str_contains($normalized, 'krieger') => 16,
+            str_contains($normalized, 'waldlaeufer') || str_contains($normalized, 'waldlaufer') => 13,
+            str_contains($normalized, 'assassine') => 12,
+            str_contains($normalized, 'priester') => 11,
+            str_contains($normalized, 'barde') => 10,
+            str_contains($normalized, 'magier') => 8,
+            default => 10,
+        };
     }
 }

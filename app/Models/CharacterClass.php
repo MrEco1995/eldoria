@@ -15,11 +15,13 @@ class CharacterClass extends Model
         'name',
         'slug',
         'description',
+        'hp_base',
         'is_active',
         'sort_order',
     ];
 
     protected $casts = [
+        'hp_base' => 'integer',
         'is_active' => 'boolean',
     ];
 }

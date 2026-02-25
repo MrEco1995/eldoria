@@ -25,11 +25,17 @@ class PartyCharacter extends Model
         'weight_kg',
         'traits',
         'talents',
+        'hp_max',
+        'hp_current',
+        'hp_temp',
     ];
 
     protected $casts = [
         'traits' => 'array',
         'talents' => 'array',
+        'hp_max' => 'integer',
+        'hp_current' => 'integer',
+        'hp_temp' => 'integer',
     ];
 
     public function party(): BelongsTo

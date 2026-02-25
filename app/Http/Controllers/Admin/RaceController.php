@@ -27,6 +27,7 @@ class RaceController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120', Rule::unique('races', 'name')],
             'description' => ['required', 'string'],
+            'hp_base' => ['required', 'integer', 'min:0', 'max:500'],
             'essence' => ['nullable', 'string'],
             'appearance' => ['nullable', 'string'],
             'age_text' => ['required', 'string', 'max:180'],
@@ -41,6 +42,7 @@ class RaceController extends Controller
             'name' => $data['name'],
             'slug' => $this->makeUniqueSlug($data['name']),
             'description' => $data['description'],
+            'hp_base' => (int) $data['hp_base'],
             'essence' => $this->parseList($data['essence'] ?? null),
             'appearance' => $this->parseList($data['appearance'] ?? null),
             'age_text' => $data['age_text'],
@@ -65,6 +67,7 @@ class RaceController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120', Rule::unique('races', 'name')->ignore($race->id)],
             'description' => ['required', 'string'],
+            'hp_base' => ['required', 'integer', 'min:0', 'max:500'],
             'essence' => ['nullable', 'string'],
             'appearance' => ['nullable', 'string'],
             'age_text' => ['required', 'string', 'max:180'],
@@ -79,6 +82,7 @@ class RaceController extends Controller
             'name' => $data['name'],
             'slug' => $this->makeUniqueSlug($data['name'], $race->id),
             'description' => $data['description'],
+            'hp_base' => (int) $data['hp_base'],
             'essence' => $this->parseList($data['essence'] ?? null),
             'appearance' => $this->parseList($data['appearance'] ?? null),
             'age_text' => $data['age_text'],
