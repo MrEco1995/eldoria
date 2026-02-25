@@ -1,7 +1,7 @@
 <x-admin.layout title="Admin - Charakterdetail">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h1 class="h4 mb-0">Charakter: {{ $character->name }}</h1>
-        <a href="{{ route('admin.characters.index') }}" class="btn btn-sm btn-outline-secondary">Zurück</a>
+        <a href="{{ route('admin.characters.index') }}" class="btn btn-sm btn-outline-secondary">Zurueck</a>
     </div>
 
     <div class="row g-3">
@@ -9,14 +9,32 @@
             <div class="card border-0 shadow-sm mb-3">
                 <div class="card-body">
                     <h2 class="h6 mb-3">Basisdaten</h2>
+                    @php
+                        $hpMax = max(1, (int) ($character->hp_max ?? 1));
+                        $hpCurrent = max(0, min($hpMax, (int) ($character->hp_current ?? 0)));
+                        $hpPercent = (int) round(($hpCurrent / $hpMax) * 100);
+                        $tempHp = max(0, (int) ($character->hp_temp ?? 0));
+                        $tempPercent = (int) round((min($tempHp, $hpMax) / $hpMax) * 100);
+                    @endphp
                     <div class="row g-2 small">
                         <div class="col-12 col-md-6"><strong>User:</strong> {{ $character->user?->name }} ({{ $character->user?->email }})</div>
                         <div class="col-12 col-md-6"><strong>Party:</strong> {{ $character->party?->name ?? '-' }}</div>
                         <div class="col-12 col-md-6"><strong>Volk:</strong> {{ $character->race }}</div>
                         <div class="col-12 col-md-6"><strong>Klasse:</strong> {{ $character->class_name }}</div>
+                        <div class="col-12 col-md-4"><strong>HP:</strong> {{ $hpCurrent }} / {{ $hpMax }}</div>
+                        <div class="col-12 col-md-4"><strong>Temp HP:</strong> +{{ $tempHp }}</div>
+                        <div class="col-12 col-md-4">
+                            <div class="small text-muted mb-1">Balken</div>
+                            <div class="progress mb-1" style="height: 0.45rem;">
+                                <div class="progress-bar bg-info" role="progressbar" style="width: {{ $tempPercent }}%"></div>
+                            </div>
+                            <div class="progress" style="height: 0.65rem;">
+                                <div class="progress-bar {{ $hpPercent <= 30 ? 'bg-danger' : ($hpPercent <= 60 ? 'bg-warning' : 'bg-success') }}" role="progressbar" style="width: {{ $hpPercent }}%"></div>
+                            </div>
+                        </div>
                         <div class="col-12 col-md-4"><strong>Geschlecht:</strong> {{ $character->gender }}</div>
                         <div class="col-12 col-md-4"><strong>Alter:</strong> {{ $character->age }}</div>
-                        <div class="col-12 col-md-4"><strong>Größe / Gewicht:</strong> {{ $character->height_cm }}cm / {{ $character->weight_kg }}kg</div>
+                        <div class="col-12 col-md-4"><strong>Groesse / Gewicht:</strong> {{ $character->height_cm }}cm / {{ $character->weight_kg }}kg</div>
                     </div>
                 </div>
             </div>
@@ -136,7 +154,7 @@
                                 @endphp
                                 <div class="border rounded px-2 py-1 bg-white">
                                     <div class="small fw-semibold">{{ $amountGold }}G {{ $amountSilver }}S {{ $amountKopper }}K</div>
-                                    <div class="small text-muted">{{ $tx->type }} · {{ $tx->actor?->name ?? 'System' }}</div>
+                                    <div class="small text-muted">{{ $tx->type }} � {{ $tx->actor?->name ?? 'System' }}</div>
                                 </div>
                             @endforeach
                         </div>

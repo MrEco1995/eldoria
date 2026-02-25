@@ -356,19 +356,28 @@ const onCharacterHpUpdated = (event) => {
     applyHpToCharacter(event.partyCharacterId, event.hp);
 };
 
-const hpRatio = computed(() => {
+const hpRatioPrecise = computed(() => {
     const max = Number(activeCharacter.value?.hpMax ?? 0);
     const current = Number(activeCharacter.value?.hpCurrent ?? 0);
     if (max <= 0) return 0;
-    return Math.max(0, Math.min(100, Math.round((current / max) * 100)));
+    return Math.max(0, Math.min(100, (current / max) * 100));
+});
+
+const hpRatio = computed(() => {
+    return Math.round(hpRatioPrecise.value);
 });
 
 const hpBarClass = computed(() => {
-    if (hpRatio.value <= 30) return 'bg-danger';
-    if (hpRatio.value <= 60) return 'bg-warning';
+    if (hpRatioPrecise.value <= 30) return 'bg-danger';
+    if (hpRatioPrecise.value <= 60) return 'bg-warning';
     return 'bg-success';
 });
 const isCharacterDead = (character) => Number(character?.hpCurrent ?? 0) <= 0;
+const hpPercentWidth = (value, max) => {
+    const safeMax = Math.max(1, Number(max ?? 1));
+    const safeValue = Math.max(0, Math.min(safeMax, Number(value ?? 0)));
+    return `${((safeValue / safeMax) * 100).toFixed(2)}%`;
+};
 
 const updateHp = async (action, amount = 0) => {
     if (!activeCharacter.value?.id || hpActionBusy.value) return;
@@ -1336,7 +1345,7 @@ onBeforeUnmount(() => {
                                     <div
                                         class="progress-bar bg-info"
                                         role="progressbar"
-                                        :style="{ width: `${Math.max(0, Math.min(100, Math.round(((activeCharacter.hpTemp ?? 0) / Math.max(1, activeCharacter.hpMax ?? 1)) * 100)))}%` }"
+                                        :style="{ width: hpPercentWidth(activeCharacter.hpTemp, activeCharacter.hpMax) }"
                                     ></div>
                                 </div>
                                 <div class="d-flex justify-content-between small mb-1">
@@ -1347,7 +1356,7 @@ onBeforeUnmount(() => {
                                     Spieler ist Tot
                                 </div>
                                 <div class="progress hp-progress mb-2">
-                                    <div class="progress-bar" :class="hpBarClass" role="progressbar" :style="{ width: `${hpRatio}%` }"></div>
+                                    <div class="progress-bar" :class="hpBarClass" role="progressbar" :style="{ width: `${hpRatioPrecise.toFixed(2)}%` }"></div>
                                 </div>
                                 <div class="d-flex flex-wrap gap-2">
                                     <button type="button" class="btn btn-sm btn-outline-danger" :disabled="hpActionBusy" @click="updateHp('damage', 1)">-1</button>
