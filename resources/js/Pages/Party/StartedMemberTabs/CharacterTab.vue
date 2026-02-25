@@ -123,7 +123,7 @@ defineProps({
                             <div class="small mb-2">
                                 <strong>{{ latestMyRequest.ownerUserName }}</strong> fordert:
                                 {{ latestMyRequest.talents.map((t) => t.label).join(', ') }}
-                                <span class="text-muted"> � {{ modifierLabel(latestMyRequest) }}</span>
+                                <span class="text-muted"> / {{ modifierLabel(latestMyRequest) }}</span>
                             </div>
                             <div class="d-flex justify-content-between align-items-center mb-2">
                                 <span class="badge" :class="requestResultClass(latestMyRequest)">
@@ -139,7 +139,7 @@ defineProps({
                                     <div class="small">
                                         <div class="fw-semibold">{{ talent.label }}</div>
                                         <div v-if="isRolled(talent)" class="text-muted">
-                                            Wurf: {{ talent.rolledValue }} � Zielwert: {{ talent.targetValue }}
+                                            Wurf: {{ talent.rolledValue }} / Zielwert: {{ talent.targetValue }}
                                         </div>
                                     </div>
                                     <div class="d-flex align-items-center gap-2">

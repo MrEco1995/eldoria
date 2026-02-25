@@ -154,7 +154,7 @@
                                 @endphp
                                 <div class="border rounded px-2 py-1 bg-white">
                                     <div class="small fw-semibold">{{ $amountGold }}G {{ $amountSilver }}S {{ $amountKopper }}K</div>
-                                    <div class="small text-muted">{{ $tx->type }} · {{ $tx->actor?->name ?? 'System' }}</div>
+                                    <div class="small text-muted">{{ $tx->type }} - {{ $tx->actor?->name ?? 'System' }}</div>
                                 </div>
                             @endforeach
                         </div>
