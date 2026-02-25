@@ -13,7 +13,7 @@ class CharacterController extends Controller
     {
         $characters = PartyCharacter::query()
             ->with('user:id,name,email')
-            ->select('id', 'party_id', 'user_id', 'name', 'race', 'class_name')
+            ->select('id', 'party_id', 'user_id', 'name', 'race', 'class_name', 'hp_max', 'hp_current', 'hp_temp')
             ->orderByDesc('id')
             ->paginate(25);
 

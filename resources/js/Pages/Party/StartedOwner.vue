@@ -1329,8 +1329,19 @@ onBeforeUnmount(() => {
                             <div class="text-muted mb-3">{{ activeCharacter.age }} Jahre · {{ activeCharacter.height_cm }} cm · {{ activeCharacter.weight_kg }} kg</div>
                             <div class="mb-4">
                                 <div class="d-flex justify-content-between small mb-1">
+                                    <strong>Temp HP</strong>
+                                    <span>+{{ activeCharacter.hpTemp ?? 0 }}</span>
+                                </div>
+                                <div class="progress hp-progress hp-progress-temp mb-2">
+                                    <div
+                                        class="progress-bar bg-info"
+                                        role="progressbar"
+                                        :style="{ width: `${Math.max(0, Math.min(100, Math.round(((activeCharacter.hpTemp ?? 0) / Math.max(1, activeCharacter.hpMax ?? 1)) * 100)))}%` }"
+                                    ></div>
+                                </div>
+                                <div class="d-flex justify-content-between small mb-1">
                                     <strong>HP {{ activeCharacter.hpCurrent ?? 0 }} / {{ activeCharacter.hpMax ?? 0 }}</strong>
-                                    <span v-if="(activeCharacter.hpTemp ?? 0) > 0">Temp +{{ activeCharacter.hpTemp }}</span>
+                                    <span>{{ hpRatio }}%</span>
                                 </div>
                                 <div v-if="isCharacterDead(activeCharacter)" class="small text-danger fw-semibold mb-2">
                                     Spieler ist Tot
@@ -1712,6 +1723,10 @@ onBeforeUnmount(() => {
 
 .hp-progress {
     height: 0.75rem;
+}
+
+.hp-progress-temp {
+    height: 0.55rem;
 }
 
 .eldoria-row {

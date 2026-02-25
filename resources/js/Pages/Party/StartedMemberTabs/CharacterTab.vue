@@ -29,8 +29,19 @@ defineProps({
                     <div class="text-muted mb-4">{{ character.age }} Jahre Â· {{ character.height_cm }} cm Â· {{ character.weight_kg }} kg</div>
                     <div class="mb-4">
                         <div class="d-flex justify-content-between small mb-1">
+                            <strong>Temp HP</strong>
+                            <span>+{{ character.hpTemp ?? 0 }}</span>
+                        </div>
+                        <div class="progress mb-2" style="height: 0.55rem;">
+                            <div
+                                class="progress-bar bg-info"
+                                role="progressbar"
+                                :style="{ width: `${Math.max(0, Math.min(100, Math.round(((character.hpTemp ?? 0) / Math.max(1, character.hpMax ?? 1)) * 100)))}%` }"
+                            ></div>
+                        </div>
+                        <div class="d-flex justify-content-between small mb-1">
                             <strong>HP {{ character.hpCurrent ?? 0 }} / {{ character.hpMax ?? 0 }}</strong>
-                            <span v-if="(character.hpTemp ?? 0) > 0">Temp +{{ character.hpTemp }}</span>
+                            <span>{{ Math.max(0, Math.min(100, Math.round(((character.hpCurrent ?? 0) / Math.max(1, character.hpMax ?? 1)) * 100))) }}%</span>
                         </div>
                         <div class="progress" style="height: 0.75rem;">
                             <div

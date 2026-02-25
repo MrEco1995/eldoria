@@ -13,6 +13,8 @@
                         <th>Name</th>
                         <th>Volk</th>
                         <th>Klasse</th>
+                        <th>HP</th>
+                        <th>Temp HP</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -26,10 +28,12 @@
                             </td>
                             <td>{{ $entry->race }}</td>
                             <td>{{ $entry->class_name }}</td>
+                            <td>{{ (int) ($entry->hp_current ?? 0) }} / {{ max(1, (int) ($entry->hp_max ?? 1)) }}</td>
+                            <td>+{{ (int) ($entry->hp_temp ?? 0) }}</td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="4" class="text-center text-muted py-3">Keine Charaktere gefunden.</td>
+                            <td colspan="6" class="text-center text-muted py-3">Keine Charaktere gefunden.</td>
                         </tr>
                     @endforelse
                 </tbody>
