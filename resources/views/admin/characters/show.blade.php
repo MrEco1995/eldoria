@@ -21,15 +21,14 @@
                         <div class="col-12 col-md-6"><strong>Party:</strong> {{ $character->party?->name ?? '-' }}</div>
                         <div class="col-12 col-md-6"><strong>Volk:</strong> {{ $character->race }}</div>
                         <div class="col-12 col-md-6"><strong>Klasse:</strong> {{ $character->class_name }}</div>
-                        <div class="col-12 col-md-4"><strong>HP:</strong> {{ $hpCurrent }} / {{ $hpMax }}</div>
-                        <div class="col-12 col-md-4"><strong>Temp HP:</strong> +{{ $tempHp }}</div>
-                        <div class="col-12 col-md-4">
-                            <div class="small text-muted mb-1">Balken</div>
-                            <div class="progress mb-1" style="height: 0.45rem;">
-                                <div class="progress-bar bg-info" role="progressbar" style="width: {{ $tempPercent }}%"></div>
-                            </div>
+                        <div class="col-12 col-md-4"><strong>HP:</strong> {{ $hpCurrent }} / {{ $hpMax }}<br>
                             <div class="progress" style="height: 0.65rem;">
                                 <div class="progress-bar {{ $hpPercent <= 30 ? 'bg-danger' : ($hpPercent <= 60 ? 'bg-warning' : 'bg-success') }}" role="progressbar" style="width: {{ $hpPercent }}%"></div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-4"><strong>Temp HP:</strong> +{{ $tempHp }}  <br>
+                            <div class="progress mb-1" style="height: 0.45rem;">
+                                <div class="progress-bar bg-info" role="progressbar" style="width: {{ $tempPercent }}%"></div>
                             </div>
                         </div>
                         <div class="col-12 col-md-4"><strong>Geschlecht:</strong> {{ $character->gender }}</div>
