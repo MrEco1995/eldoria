@@ -1,7 +1,7 @@
 ﻿<script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 const props = defineProps({
     ownedParties: {
@@ -40,9 +40,13 @@ const pendingFriendRequestsState = ref([...(props.pendingFriendRequests ?? [])])
 const friendsState = ref([...(props.friends ?? [])]);
 const sendingRequestUserIds = ref({});
 const processingRequestIds = ref({});
+const onlineUserMap = ref({});
+const canSubmitUserSearch = computed(() => (searchQuery.value ?? '').trim().length >= 5);
+const hasActiveSearch = computed(() => (props.userSearch ?? '').trim().length >= 5);
 
 const submitUserSearch = () => {
     const value = (searchQuery.value ?? '').trim();
+    if (value.length < 5) return;
     router.get(route('lobby'), {
         user_search: value || undefined,
     }, {
@@ -54,7 +58,11 @@ const submitUserSearch = () => {
 
 const resetUserSearch = () => {
     searchQuery.value = '';
-    submitUserSearch();
+    router.get(route('lobby'), {}, {
+        preserveState: true,
+        preserveScroll: true,
+        replace: true,
+    });
 };
 
 const emitPendingCount = () => {
@@ -116,6 +124,63 @@ const handleIncomingFriendRequest = async (requestId, action) => {
         processingRequestIds.value[String(requestId)] = false;
     }
 };
+
+const isFriendOnline = (friendId) => Boolean(onlineUserMap.value[String(friendId)]);
+const setOnlineUsers = (users) => {
+    const next = {};
+    (users ?? []).forEach((entry) => {
+        const id = Number(entry?.id ?? 0);
+        if (id > 0) next[String(id)] = true;
+    });
+    onlineUserMap.value = next;
+};
+
+const addOnlineUser = (user) => {
+    const id = Number(user?.id ?? 0);
+    if (id <= 0) return;
+    onlineUserMap.value = {
+        ...onlineUserMap.value,
+        [String(id)]: true,
+    };
+};
+
+const removeOnlineUser = (user) => {
+    const id = Number(user?.id ?? 0);
+    if (id <= 0) return;
+    const next = { ...onlineUserMap.value };
+    delete next[String(id)];
+    onlineUserMap.value = next;
+};
+
+watch(() => props.userSearch, (next) => {
+    searchQuery.value = next ?? '';
+}, { immediate: true });
+
+watch(() => props.users, (next) => {
+    usersState.value = [...(next ?? [])];
+}, { immediate: true });
+
+watch(() => props.pendingFriendRequests, (next) => {
+    pendingFriendRequestsState.value = [...(next ?? [])];
+    emitPendingCount();
+}, { immediate: true });
+
+watch(() => props.friends, (next) => {
+    friendsState.value = [...(next ?? [])];
+}, { immediate: true });
+
+onMounted(() => {
+    if (!window.Echo) return;
+    window.Echo.join('online')
+        .here((users) => setOnlineUsers(users))
+        .joining((user) => addOnlineUser(user))
+        .leaving((user) => removeOnlineUser(user));
+});
+
+onBeforeUnmount(() => {
+    if (!window.Echo) return;
+    window.Echo.leave('online');
+});
 </script>
 
 <template>
@@ -189,6 +254,35 @@ const handleIncomingFriendRequest = async (requestId, action) => {
                         </ul>
                     </div>
                 </div>
+
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-body p-4">
+                        <div class="text-uppercase small text-muted mb-2" style="letter-spacing: 2px;">
+                            Kontakte
+                        </div>
+                        <h6 class="mb-3">Befreundete Spieler</h6>
+                        <div v-if="friendsState.length === 0" class="text-muted">
+                            Du hast noch keine Freunde.
+                        </div>
+                        <ul v-else class="list-group list-group-flush">
+                            <li
+                                v-for="friend in friendsState"
+                                :key="`friend-left-${friend.id}`"
+                                class="list-group-item px-0 d-flex justify-content-between align-items-center"
+                            >
+                                <span class="fw-semibold d-inline-flex align-items-center gap-2">
+                                    <span
+                                        class="rounded-circle d-inline-block"
+                                        :class="isFriendOnline(friend.id) ? 'bg-success' : 'bg-secondary'"
+                                        style="width: 10px; height: 10px;"
+                                    ></span>
+                                    {{ friend.name }}
+                                </span>
+                                <span class="text-muted small">{{ friend.email }}</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
             </div>
 
             <div class="col-12 col-lg-8 position-relative">
@@ -208,14 +302,17 @@ const handleIncomingFriendRequest = async (requestId, action) => {
                                 >
                             </div>
                             <div class="col-6 col-md-2">
-                                <button type="submit" class="btn btn-primary w-100">Suchen</button>
+                                <button type="submit" class="btn btn-primary w-100" :disabled="!canSubmitUserSearch">Suchen</button>
                             </div>
                             <div class="col-6 col-md-2">
                                 <button type="button" class="btn btn-outline-secondary w-100" @click="resetUserSearch">Reset</button>
                             </div>
                         </form>
 
-                        <div v-if="usersState.length === 0" class="text-muted small">Keine User gefunden.</div>
+                        <div v-if="!hasActiveSearch" class="text-muted small">
+                            Gib mindestens 5 Zeichen ein und starte dann die Suche.
+                        </div>
+                        <div v-else-if="usersState.length === 0" class="text-muted small">Keine User gefunden.</div>
                         <ul v-else class="list-group list-group-flush">
                             <li
                                 v-for="entry in usersState"
@@ -296,27 +393,6 @@ const handleIncomingFriendRequest = async (requestId, action) => {
                             </div>
                         </div>
 
-                        <div class="card shadow-sm border-0 mb-4">
-                            <div class="card-body p-4">
-                                <div class="text-uppercase small text-muted mb-2" style="letter-spacing: 2px;">
-                                    Kontakte
-                                </div>
-                                <h6 class="mb-3">Befreundete Spieler</h6>
-                                <div v-if="friendsState.length === 0" class="text-muted">
-                                    Du hast noch keine Freunde.
-                                </div>
-                                <ul v-else class="list-group list-group-flush">
-                                    <li
-                                        v-for="friend in friendsState"
-                                        :key="`friend-${friend.id}`"
-                                        class="list-group-item px-0 d-flex justify-content-between align-items-center"
-                                    >
-                                        <span class="fw-semibold">{{ friend.name }}</span>
-                                        <span class="text-muted small">{{ friend.email }}</span>
-                                    </li>
-                                </ul>
-                            </div>
-                        </div>
                     </div>
 
                     <div class="col-12 col-lg-6">

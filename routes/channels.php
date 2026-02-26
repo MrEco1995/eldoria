@@ -13,3 +13,10 @@ Broadcast::channel('party.{partyId}', function ($user, $partyId) {
 Broadcast::channel('user.{userId}', function ($user, $userId) {
     return (int) $user->id === (int) $userId;
 });
+
+Broadcast::channel('online', function ($user) {
+    return [
+        'id' => (int) $user->id,
+        'name' => (string) $user->name,
+    ];
+});

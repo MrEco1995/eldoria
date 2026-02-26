@@ -57,19 +57,19 @@ Route::get('/lobby', function (Request $request) {
     $user = $request->user();
     $userSearch = trim((string) $request->query('user_search', ''));
 
-    $usersQuery = User::query()
-        ->select('id', 'name', 'email')
-        ->where('id', '!=', $user->id)
-        ->orderBy('name');
+    $users = collect();
+    if (mb_strlen($userSearch) >= 5) {
+        $usersQuery = User::query()
+            ->select('id', 'name', 'email')
+            ->where('id', '!=', $user->id)
+            ->orderBy('name');
 
-    if ($userSearch !== '') {
         $usersQuery->where(function ($query) use ($userSearch) {
             $query->where('name', 'like', "%{$userSearch}%")
                 ->orWhere('email', 'like', "%{$userSearch}%");
         });
+        $users = $usersQuery->limit(40)->get();
     }
-
-    $users = $usersQuery->limit(40)->get();
     $userIds = $users->pluck('id');
     $friendshipsByOtherId = Friendship::query()
         ->where(function ($query) use ($user, $userIds) {
