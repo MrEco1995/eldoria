@@ -1,7 +1,7 @@
 <x-admin.layout title="Admin - Charakterdetail">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1 class="h4 mb-0">Charakter: {{ $character->name }}</h1>
-        <a href="{{ route('admin.characters.index') }}" class="btn btn-sm btn-outline-secondary">Zurueck</a>
+        <h1 class="h4 mb-0">Charakter: {{ $character->name }}<br><strong>Geschlecht:</strong> {{ $character->gender }}</h1>
+        <a href="{{ route('admin.characters.index') }}" class="btn btn-sm btn-outline-secondary">Zurück</a>
     </div>
 
     <div class="row g-3">
@@ -31,7 +31,7 @@
                                 <div class="progress-bar bg-info" role="progressbar" style="width: {{ $tempPercent }}%"></div>
                             </div>
                         </div>
-                        <div class="col-12 col-md-4"><strong>Geschlecht:</strong> {{ $character->gender }}</div>
+                        <!--div class="col-12 col-md-4"><strong>Geschlecht:</strong> {{-- $character->gender --}}</div-->
                         <div class="col-12 col-md-4"><strong>Alter:</strong> {{ $character->age }}</div>
                         <div class="col-12 col-md-4"><strong>Groesse / Gewicht:</strong> {{ $character->height_cm }}cm / {{ $character->weight_kg }}kg</div>
                     </div>

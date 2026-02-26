@@ -1,8 +1,9 @@
 ﻿<script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
+import { ref } from 'vue';
 
-defineProps({
+const props = defineProps({
     ownedParties: {
         type: Array,
         default: () => [],
@@ -15,8 +16,106 @@ defineProps({
         type: Boolean,
         default: false,
     },
+    userSearch: {
+        type: String,
+        default: '',
+    },
+    users: {
+        type: Array,
+        default: () => [],
+    },
+    pendingFriendRequests: {
+        type: Array,
+        default: () => [],
+    },
+    friends: {
+        type: Array,
+        default: () => [],
+    },
 });
 
+const searchQuery = ref(props.userSearch ?? '');
+const usersState = ref([...(props.users ?? [])]);
+const pendingFriendRequestsState = ref([...(props.pendingFriendRequests ?? [])]);
+const friendsState = ref([...(props.friends ?? [])]);
+const sendingRequestUserIds = ref({});
+const processingRequestIds = ref({});
+
+const submitUserSearch = () => {
+    const value = (searchQuery.value ?? '').trim();
+    router.get(route('lobby'), {
+        user_search: value || undefined,
+    }, {
+        preserveState: true,
+        preserveScroll: true,
+        replace: true,
+    });
+};
+
+const resetUserSearch = () => {
+    searchQuery.value = '';
+    submitUserSearch();
+};
+
+const emitPendingCount = () => {
+    window.dispatchEvent(new CustomEvent('friend-requests:count-sync', {
+        detail: { count: pendingFriendRequestsState.value.length },
+    }));
+};
+
+const markUserRelationship = (userId, relationshipStatus) => {
+    const idx = usersState.value.findIndex((entry) => Number(entry.id) === Number(userId));
+    if (idx < 0) return;
+    usersState.value[idx] = {
+        ...usersState.value[idx],
+        relationshipStatus,
+    };
+};
+
+const sendFriendRequest = async (userId) => {
+    if (sendingRequestUserIds.value[String(userId)]) return;
+    sendingRequestUserIds.value[String(userId)] = true;
+    try {
+        await window.axios.post(route('friends.requests.store'), {
+            recipient_user_id: Number(userId),
+        });
+        markUserRelationship(userId, 'outgoing_pending');
+    } catch {
+        // ignore
+    } finally {
+        sendingRequestUserIds.value[String(userId)] = false;
+    }
+};
+
+const handleIncomingFriendRequest = async (requestId, action) => {
+    if (processingRequestIds.value[String(requestId)]) return;
+    processingRequestIds.value[String(requestId)] = true;
+    try {
+        const response = await window.axios.post(route(
+            action === 'accept' ? 'friends.requests.accept' : 'friends.requests.reject',
+            requestId,
+        ));
+
+        const requestEntry = pendingFriendRequestsState.value.find((entry) => Number(entry.id) === Number(requestId));
+        pendingFriendRequestsState.value = pendingFriendRequestsState.value.filter((entry) => Number(entry.id) !== Number(requestId));
+        emitPendingCount();
+
+        if (requestEntry?.requester?.id) {
+            markUserRelationship(requestEntry.requester.id, action === 'accept' ? 'accepted' : null);
+        }
+
+        if (action === 'accept' && response?.data?.friend?.id) {
+            const exists = friendsState.value.some((entry) => Number(entry.id) === Number(response.data.friend.id));
+            if (!exists) {
+                friendsState.value.unshift(response.data.friend);
+            }
+        }
+    } catch {
+        // ignore
+    } finally {
+        processingRequestIds.value[String(requestId)] = false;
+    }
+};
 </script>
 
 <template>
@@ -93,7 +192,133 @@ defineProps({
             </div>
 
             <div class="col-12 col-lg-8 position-relative">
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-body p-4">
+                        <div class="text-uppercase small text-muted mb-2" style="letter-spacing: 2px;">
+                            Nutzer
+                        </div>
+                        <h6 class="mb-3">User-Suche</h6>
+                        <form class="row g-2 mb-3" @submit.prevent="submitUserSearch">
+                            <div class="col-12 col-md-8">
+                                <input
+                                    v-model="searchQuery"
+                                    type="text"
+                                    class="form-control"
+                                    placeholder="Nach Name oder E-Mail suchen..."
+                                >
+                            </div>
+                            <div class="col-6 col-md-2">
+                                <button type="submit" class="btn btn-primary w-100">Suchen</button>
+                            </div>
+                            <div class="col-6 col-md-2">
+                                <button type="button" class="btn btn-outline-secondary w-100" @click="resetUserSearch">Reset</button>
+                            </div>
+                        </form>
+
+                        <div v-if="usersState.length === 0" class="text-muted small">Keine User gefunden.</div>
+                        <ul v-else class="list-group list-group-flush">
+                            <li
+                                v-for="entry in usersState"
+                                :key="`lobby-user-${entry.id}`"
+                                class="list-group-item px-0 d-flex justify-content-between align-items-center"
+                            >
+                                <div class="d-flex flex-column">
+                                    <span class="d-inline-flex align-items-center gap-2 fw-semibold">
+                                        <span aria-hidden="true">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                                <path d="M12 2a6 6 0 0 0-6 6v3.3l-1.7 2.9A1 1 0 0 0 5.2 16h13.6a1 1 0 0 0 .9-1.5L18 11.3V8a6 6 0 0 0-6-6Zm0 20a3 3 0 0 0 2.8-2H9.2A3 3 0 0 0 12 22Z" />
+                                            </svg>
+                                        </span>
+                                        {{ entry.name }}
+                                    </span>
+                                    <span class="text-muted small">{{ entry.email }}</span>
+                                </div>
+                                <div>
+                                    <button
+                                        v-if="!entry.relationshipStatus"
+                                        type="button"
+                                        class="btn btn-sm btn-outline-primary"
+                                        :disabled="sendingRequestUserIds[String(entry.id)] === true"
+                                        @click="sendFriendRequest(entry.id)"
+                                    >
+                                        Anfrage senden
+                                    </button>
+                                    <span v-else-if="entry.relationshipStatus === 'accepted'" class="badge text-bg-success">Befreundet</span>
+                                    <span v-else-if="entry.relationshipStatus === 'outgoing_pending'" class="badge text-bg-secondary">Anfrage gesendet</span>
+                                    <span v-else-if="entry.relationshipStatus === 'incoming_pending'" class="badge text-bg-warning">Hat dir angefragt</span>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
                 <div class="row">
+                    <div class="col-12 col-lg-6">
+                        <div class="card shadow-sm border-0 mb-4">
+                            <div class="card-body p-4">
+                                <div class="text-uppercase small text-muted mb-2" style="letter-spacing: 2px;">
+                                    Freundschaft
+                                </div>
+                                <h6 class="mb-3">Eingehende Anfragen</h6>
+                                <div v-if="pendingFriendRequestsState.length === 0" class="text-muted small">
+                                    Keine offenen Freundschaftsanfragen.
+                                </div>
+                                <ul v-else class="list-group list-group-flush">
+                                    <li
+                                        v-for="requestEntry in pendingFriendRequestsState"
+                                        :key="`friend-request-${requestEntry.id}`"
+                                        class="list-group-item px-0 d-flex justify-content-between align-items-center gap-2"
+                                    >
+                                        <div>
+                                            <div class="fw-semibold">{{ requestEntry.requester?.name ?? 'Unbekannt' }}</div>
+                                            <div class="text-muted small">{{ requestEntry.requester?.email }}</div>
+                                        </div>
+                                        <div class="d-flex gap-1">
+                                            <button
+                                                type="button"
+                                                class="btn btn-sm btn-outline-success"
+                                                :disabled="processingRequestIds[String(requestEntry.id)] === true"
+                                                @click="handleIncomingFriendRequest(requestEntry.id, 'accept')"
+                                            >
+                                                Annehmen
+                                            </button>
+                                            <button
+                                                type="button"
+                                                class="btn btn-sm btn-outline-danger"
+                                                :disabled="processingRequestIds[String(requestEntry.id)] === true"
+                                                @click="handleIncomingFriendRequest(requestEntry.id, 'reject')"
+                                            >
+                                                Ablehnen
+                                            </button>
+                                        </div>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div class="card shadow-sm border-0 mb-4">
+                            <div class="card-body p-4">
+                                <div class="text-uppercase small text-muted mb-2" style="letter-spacing: 2px;">
+                                    Kontakte
+                                </div>
+                                <h6 class="mb-3">Befreundete Spieler</h6>
+                                <div v-if="friendsState.length === 0" class="text-muted">
+                                    Du hast noch keine Freunde.
+                                </div>
+                                <ul v-else class="list-group list-group-flush">
+                                    <li
+                                        v-for="friend in friendsState"
+                                        :key="`friend-${friend.id}`"
+                                        class="list-group-item px-0 d-flex justify-content-between align-items-center"
+                                    >
+                                        <span class="fw-semibold">{{ friend.name }}</span>
+                                        <span class="text-muted small">{{ friend.email }}</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="col-12 col-lg-6">
                         <div class="card shadow-sm border-0 mb-4">
                             <div class="card-body p-4">
@@ -115,15 +340,13 @@ defineProps({
                                             :href="route('parties.show', party.id)"
                                             class="btn btn-sm btn-outline-primary"
                                         >
-                                        Öffnen
+                                            Oeffnen
                                         </Link>
                                     </li>
                                 </ul>
                             </div>
                         </div>
-                    </div>
 
-                    <div class="col-12 col-lg-6">
                         <div class="card shadow-sm border-0 mb-4">
                             <div class="card-body p-4">
                                 <div class="text-uppercase small text-muted mb-2" style="letter-spacing: 2px;">
@@ -144,7 +367,7 @@ defineProps({
                                             :href="route('parties.show', party.id)"
                                             class="btn btn-sm btn-outline-secondary"
                                         >
-                                            Öffnen
+                                            Oeffnen
                                         </Link>
                                     </li>
                                 </ul>
@@ -158,7 +381,7 @@ defineProps({
                         <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-3">
                             <div>
                                 <div class="text-uppercase small text-muted mb-2" style="letter-spacing: 2px;">
-                                    Atmosphäre
+                                    Atmosphaere
                                 </div>
                                 <h5 class="mb-1">Die Lobby lebt</h5>
                                 <p class="text-muted mb-0">
@@ -184,4 +407,3 @@ defineProps({
         </div>
     </AuthenticatedLayout>
 </template>
-

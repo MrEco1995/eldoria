@@ -21,7 +21,10 @@ use App\Http\Controllers\Admin\CharacterController as AdminCharacterController;
 use App\Http\Controllers\Admin\MapPointController as AdminMapPointController;
 use App\Http\Controllers\Admin\QuestController as AdminQuestController;
 use App\Http\Controllers\Admin\TalentController as AdminTalentController;
+use App\Http\Controllers\FriendshipController;
 use App\Http\Controllers\PublicMediaController;
+use App\Models\Friendship;
+use App\Models\User;
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -52,6 +55,67 @@ Route::get('/media/public/{path}', [PublicMediaController::class, 'show'])
 
 Route::get('/lobby', function (Request $request) {
     $user = $request->user();
+    $userSearch = trim((string) $request->query('user_search', ''));
+
+    $usersQuery = User::query()
+        ->select('id', 'name', 'email')
+        ->where('id', '!=', $user->id)
+        ->orderBy('name');
+
+    if ($userSearch !== '') {
+        $usersQuery->where(function ($query) use ($userSearch) {
+            $query->where('name', 'like', "%{$userSearch}%")
+                ->orWhere('email', 'like', "%{$userSearch}%");
+        });
+    }
+
+    $users = $usersQuery->limit(40)->get();
+    $userIds = $users->pluck('id');
+    $friendshipsByOtherId = Friendship::query()
+        ->where(function ($query) use ($user, $userIds) {
+            $query
+                ->where('requester_id', $user->id)
+                ->whereIn('recipient_id', $userIds)
+                ->orWhere(function ($nested) use ($user, $userIds) {
+                    $nested
+                        ->where('recipient_id', $user->id)
+                        ->whereIn('requester_id', $userIds);
+                });
+        })
+        ->whereIn('status', [Friendship::STATUS_PENDING, Friendship::STATUS_ACCEPTED])
+        ->orderByDesc('id')
+        ->get()
+        ->mapWithKeys(function (Friendship $entry) use ($user) {
+            $otherId = $entry->requester_id === $user->id ? (int) $entry->recipient_id : (int) $entry->requester_id;
+            return [$otherId => $entry];
+        });
+
+    $pendingFriendRequests = Friendship::query()
+        ->with('requester:id,name,email')
+        ->where('recipient_id', $user->id)
+        ->where('status', Friendship::STATUS_PENDING)
+        ->orderByDesc('id')
+        ->get();
+
+    $friends = Friendship::query()
+        ->with(['requester:id,name,email', 'recipient:id,name,email'])
+        ->where('status', Friendship::STATUS_ACCEPTED)
+        ->where(function ($query) use ($user) {
+            $query->where('requester_id', $user->id)
+                ->orWhere('recipient_id', $user->id);
+        })
+        ->orderByDesc('id')
+        ->get()
+        ->map(function (Friendship $entry) use ($user) {
+            $friend = $entry->requester_id === $user->id ? $entry->recipient : $entry->requester;
+            return [
+                'id' => $friend?->id,
+                'name' => $friend?->name,
+                'email' => $friend?->email,
+            ];
+        })
+        ->filter(fn (array $entry) => !empty($entry['id']))
+        ->values();
 
     return Inertia::render('Lobby', [
         'ownedParties' => $user->ownedParties()->select('id', 'name')->get(),
@@ -60,6 +124,37 @@ Route::get('/lobby', function (Request $request) {
             ->select('parties.id', 'parties.name')
             ->get(),
         'inStartedParty' => $user->parties()->whereNotNull('parties.started_at')->exists(),
+        'userSearch' => $userSearch,
+        'users' => $users->map(function (User $entry) use ($user, $friendshipsByOtherId) {
+            $relationship = $friendshipsByOtherId->get((int) $entry->id);
+            $relationshipStatus = null;
+            if ($relationship instanceof Friendship) {
+                if ($relationship->status === Friendship::STATUS_ACCEPTED) {
+                    $relationshipStatus = 'accepted';
+                } elseif ($relationship->status === Friendship::STATUS_PENDING) {
+                    $relationshipStatus = (int) $relationship->requester_id === (int) $user->id
+                        ? 'outgoing_pending'
+                        : 'incoming_pending';
+                }
+            }
+
+            return [
+                'id' => (int) $entry->id,
+                'name' => $entry->name,
+                'email' => $entry->email,
+                'relationshipStatus' => $relationshipStatus,
+            ];
+        })->values(),
+        'pendingFriendRequests' => $pendingFriendRequests->map(fn (Friendship $entry) => [
+            'id' => (int) $entry->id,
+            'requester' => [
+                'id' => (int) $entry->requester?->id,
+                'name' => $entry->requester?->name,
+                'email' => $entry->requester?->email,
+            ],
+            'createdAt' => optional($entry->created_at)?->toISOString(),
+        ])->values(),
+        'friends' => $friends,
     ]);
 })->middleware(['auth', 'verified'])->name('lobby');
 
@@ -131,6 +226,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('parties.invites.regenerate');
     Route::get('/invites/{token}', [PartyInviteController::class, 'join'])
         ->name('parties.invites.join');
+    Route::post('/friends/requests', [FriendshipController::class, 'store'])
+        ->name('friends.requests.store');
+    Route::post('/friends/requests/{friendship}/accept', [FriendshipController::class, 'accept'])
+        ->name('friends.requests.accept');
+    Route::post('/friends/requests/{friendship}/reject', [FriendshipController::class, 'reject'])
+        ->name('friends.requests.reject');
 });
 
 Route::prefix($adminPrefix)->name('admin.')->group(function () use ($adminLoginPath) {

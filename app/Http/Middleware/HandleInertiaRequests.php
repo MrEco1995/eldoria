@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Friendship;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -39,6 +40,14 @@ class HandleInertiaRequests extends Middleware
                 'error' => $request->session()->get('error'),
                 'info' => $request->session()->get('info'),
                 'warning' => $request->session()->get('warning'),
+            ],
+            'notifications' => [
+                'pendingFriendRequests' => $request->user()
+                    ? Friendship::query()
+                        ->where('recipient_id', $request->user()->id)
+                        ->where('status', Friendship::STATUS_PENDING)
+                        ->count()
+                    : 0,
             ],
         ];
     }

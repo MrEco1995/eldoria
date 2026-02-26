@@ -1,8 +1,43 @@
 <script setup>
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
 import { Link, usePage } from '@inertiajs/vue3';
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 const page = usePage();
+const pendingFriendRequestCount = ref(Number(page.props.notifications?.pendingFriendRequests ?? 0));
+
+const syncPendingFriendRequestCount = (nextCount) => {
+    pendingFriendRequestCount.value = Math.max(0, Number(nextCount ?? 0));
+};
+
+const onFriendRequestCreated = () => {
+    pendingFriendRequestCount.value += 1;
+};
+
+const onFriendRequestCountSync = (event) => {
+    syncPendingFriendRequestCount(event?.detail?.count ?? 0);
+};
+
+watch(() => page.props.notifications?.pendingFriendRequests, (nextCount) => {
+    syncPendingFriendRequestCount(nextCount ?? 0);
+}, { immediate: true });
+
+onMounted(() => {
+    const userId = Number(page.props.auth?.user?.id ?? 0);
+    if (window.Echo && userId > 0) {
+        window.Echo.private(`user.${userId}`)
+            .listen('.friend.request.created', onFriendRequestCreated);
+    }
+    window.addEventListener('friend-requests:count-sync', onFriendRequestCountSync);
+});
+
+onBeforeUnmount(() => {
+    const userId = Number(page.props.auth?.user?.id ?? 0);
+    if (window.Echo && userId > 0) {
+        window.Echo.leave(`user.${userId}`);
+    }
+    window.removeEventListener('friend-requests:count-sync', onFriendRequestCountSync);
+});
 </script>
 
 <template>
@@ -31,7 +66,21 @@ const page = usePage();
                        
                     </ul>
 
-                    <div class="dropdown">
+                    <div class="d-flex align-items-center gap-2">
+                        <Link :href="route('lobby')" class="btn btn-outline-secondary position-relative" title="Freundschaftsanfragen">
+                            <span aria-hidden="true">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M12 2a6 6 0 0 0-6 6v3.3l-1.7 2.9A1 1 0 0 0 5.2 16h13.6a1 1 0 0 0 .9-1.5L18 11.3V8a6 6 0 0 0-6-6Zm0 20a3 3 0 0 0 2.8-2H9.2A3 3 0 0 0 12 22Z"/>
+                                </svg>
+                            </span>
+                            <span
+                                v-if="pendingFriendRequestCount > 0"
+                                class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle"
+                                aria-label="Neue Freundschaftsanfrage"
+                            ></span>
+                        </Link>
+
+                        <div class="dropdown">
                         <button
                             class="btn btn-outline-secondary     dropdown-toggle"
                             type="button"
@@ -58,6 +107,7 @@ const page = usePage();
                                 </Link>
                             </li>
                         </ul>
+                    </div>
                     </div>
                 </div>
             </div>

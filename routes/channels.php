@@ -9,3 +9,7 @@ Broadcast::channel('party.{partyId}', function ($user, $partyId) {
         ->whereHas('members', fn ($query) => $query->whereKey($user->id))
         ->exists();
 });
+
+Broadcast::channel('user.{userId}', function ($user, $userId) {
+    return (int) $user->id === (int) $userId;
+});
