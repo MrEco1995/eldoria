@@ -12,6 +12,7 @@ use App\Http\Controllers\PartyTalentRequestController;
 use App\Http\Controllers\PartyTradeSessionController;
 use App\Http\Controllers\PartyWalletTransactionController;
 use App\Http\Controllers\PartyCharacterHpController;
+use App\Http\Controllers\FriendChatController;
 use App\Http\Controllers\Admin\Auth\AuthenticatedSessionController as AdminAuthenticatedSessionController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
@@ -235,6 +236,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('friends.requests.reject');
     Route::post('/friends/{friendship}/remove', [FriendshipController::class, 'destroy'])
         ->name('friends.remove');
+    Route::get('/friends/chat', [FriendChatController::class, 'index'])
+        ->name('friends.chat.index');
+    Route::get('/friends/chat/{friend}/messages', [FriendChatController::class, 'messages'])
+        ->name('friends.chat.messages');
+    Route::post('/friends/chat/{friend}/messages', [FriendChatController::class, 'store'])
+        ->name('friends.chat.store');
+    Route::post('/friends/chat/{friend}/read', [FriendChatController::class, 'markRead'])
+        ->name('friends.chat.read');
 });
 
 Route::prefix($adminPrefix)->name('admin.')->group(function () use ($adminLoginPath) {

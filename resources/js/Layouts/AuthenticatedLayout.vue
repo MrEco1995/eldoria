@@ -1,5 +1,6 @@
 <script setup>
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
+import FriendChatSidebar from '@/Components/FriendChatSidebar.vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
@@ -41,7 +42,11 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-    <div class="min-vh-100 bg-light">
+    <div class="min-vh-100 bg-light auth-shell">
+        <FriendChatSidebar
+            v-if="$page.props.auth?.user?.id"
+            :current-user-id="Number($page.props.auth.user.id)"
+        />
         <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
             <div class="container">
                 <Link class="navbar-brand d-flex align-items-center" :href="route('lobby')">
@@ -142,3 +147,17 @@ onBeforeUnmount(() => {
         </main>
     </div>
 </template>
+
+<style scoped>
+.auth-shell {
+    position: relative;
+}
+
+@media (min-width: 992px) {
+    .auth-shell :deep(nav.navbar),
+    .auth-shell :deep(header),
+    .auth-shell :deep(main) {
+        margin-left: 270px;
+    }
+}
+</style>
