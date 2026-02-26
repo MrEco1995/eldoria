@@ -116,4 +116,30 @@ class FriendshipController extends Controller
             'friendshipId' => (int) $friendship->id,
         ]);
     }
+
+    public function destroy(Request $request, Friendship $friendship): JsonResponse
+    {
+        $user = $request->user();
+
+        abort_unless(
+            (int) $friendship->requester_id === (int) $user->id
+            || (int) $friendship->recipient_id === (int) $user->id,
+            403
+        );
+
+        $friendshipId = (int) $friendship->id;
+        $friendId = (int) (
+            (int) $friendship->requester_id === (int) $user->id
+                ? $friendship->recipient_id
+                : $friendship->requester_id
+        );
+
+        $friendship->delete();
+
+        return response()->json([
+            'status' => 'removed',
+            'friendshipId' => $friendshipId,
+            'friendId' => $friendId,
+        ]);
+    }
 }

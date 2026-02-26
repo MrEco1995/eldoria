@@ -40,6 +40,7 @@ const pendingFriendRequestsState = ref([...(props.pendingFriendRequests ?? [])])
 const friendsState = ref([...(props.friends ?? [])]);
 const sendingRequestUserIds = ref({});
 const processingRequestIds = ref({});
+const removingFriendshipIds = ref({});
 const onlineUserMap = ref({});
 const canSubmitUserSearch = computed(() => (searchQuery.value ?? '').trim().length >= 5);
 const hasActiveSearch = computed(() => (props.userSearch ?? '').trim().length >= 5);
@@ -122,6 +123,26 @@ const handleIncomingFriendRequest = async (requestId, action) => {
         // ignore
     } finally {
         processingRequestIds.value[String(requestId)] = false;
+    }
+};
+
+const removeFriend = async (friend) => {
+    const friendshipId = Number(friend?.friendshipId ?? 0);
+    if (friendshipId <= 0 || removingFriendshipIds.value[String(friendshipId)]) return;
+
+    removingFriendshipIds.value[String(friendshipId)] = true;
+    try {
+        const response = await window.axios.post(route('friends.remove', friendshipId));
+        const removedFriendId = Number(response?.data?.friendId ?? friend?.id ?? 0);
+
+        friendsState.value = friendsState.value.filter((entry) => Number(entry.friendshipId) !== friendshipId);
+        if (removedFriendId > 0) {
+            markUserRelationship(removedFriendId, null);
+        }
+    } catch {
+        // ignore
+    } finally {
+        removingFriendshipIds.value[String(friendshipId)] = false;
     }
 };
 
@@ -270,15 +291,25 @@ onBeforeUnmount(() => {
                                 :key="`friend-left-${friend.id}`"
                                 class="list-group-item px-0 d-flex justify-content-between align-items-center"
                             >
-                                <span class="fw-semibold d-inline-flex align-items-center gap-2">
-                                    <span
-                                        class="rounded-circle d-inline-block"
-                                        :class="isFriendOnline(friend.id) ? 'bg-success' : 'bg-secondary'"
-                                        style="width: 10px; height: 10px;"
-                                    ></span>
-                                    {{ friend.name }}
-                                </span>
-                                <span class="text-muted small">{{ friend.email }}</span>
+                                <div class="d-flex flex-column">
+                                    <span class="fw-semibold d-inline-flex align-items-center gap-2">
+                                        <span
+                                            class="rounded-circle d-inline-block"
+                                            :class="isFriendOnline(friend.id) ? 'bg-success' : 'bg-secondary'"
+                                            style="width: 10px; height: 10px;"
+                                        ></span>
+                                        {{ friend.name }}
+                                    </span>
+                                    <span class="text-muted small">{{ friend.email }}</span>
+                                </div>
+                                <button
+                                    type="button"
+                                    class="btn btn-sm btn-outline-danger"
+                                    :disabled="removingFriendshipIds[String(friend.friendshipId)] === true"
+                                    @click="removeFriend(friend)"
+                                >
+                                    Entfolgen
+                                </button>
                             </li>
                         </ul>
                     </div>

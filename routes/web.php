@@ -109,6 +109,7 @@ Route::get('/lobby', function (Request $request) {
         ->map(function (Friendship $entry) use ($user) {
             $friend = $entry->requester_id === $user->id ? $entry->recipient : $entry->requester;
             return [
+                'friendshipId' => (int) $entry->id,
                 'id' => $friend?->id,
                 'name' => $friend?->name,
                 'email' => $friend?->email,
@@ -232,6 +233,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('friends.requests.accept');
     Route::post('/friends/requests/{friendship}/reject', [FriendshipController::class, 'reject'])
         ->name('friends.requests.reject');
+    Route::post('/friends/{friendship}/remove', [FriendshipController::class, 'destroy'])
+        ->name('friends.remove');
 });
 
 Route::prefix($adminPrefix)->name('admin.')->group(function () use ($adminLoginPath) {
