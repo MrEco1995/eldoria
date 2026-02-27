@@ -11,7 +11,7 @@ import ActiveTradeModal from '@/Pages/Party/StartedMemberTabs/ActiveTradeModal.v
 import NpcTradeModal from '@/Pages/Party/StartedMemberTabs/NpcTradeModal.vue';
 import TradePickerModal from '@/Pages/Party/StartedMemberTabs/TradePickerModal.vue';
 import WalletTransactionsModal from '@/Pages/Party/StartedMemberTabs/WalletTransactionsModal.vue';
-import { Head } from '@inertiajs/vue3';
+import { Head, router } from '@inertiajs/vue3';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 const props = defineProps({
@@ -491,6 +491,27 @@ const onCharacterHpUpdated = (event) => {
     };
 };
 
+const ownerDisconnectEndTriggered = ref(false);
+
+const onPartyPresenceLeaving = async (user) => {
+    const ownerUserId = Number(props.party?.owner?.id ?? 0);
+    if (!ownerUserId) return;
+    if (Number(user?.id ?? 0) !== ownerUserId) return;
+    if (ownerDisconnectEndTriggered.value) return;
+    ownerDisconnectEndTriggered.value = true;
+
+    try {
+        await window.axios.post(route('parties.end-by-owner-disconnect', props.party.id));
+    } catch {
+        // ignore; if someone else already ended, this may return non-critical errors
+    }
+};
+
+const onPartyEnded = (event) => {
+    if (Number(event.partyId) !== Number(props.party.id)) return;
+    router.visit(route('lobby'), { replace: true });
+};
+
 const claimNpcTrade = async () => {
     if (npcTradeBusy.value || !npcTradeIsOpen.value || npcTradeActiveByOther.value) return;
     if (!selectedNpcTradeOfferId.value) return;
@@ -896,12 +917,17 @@ onMounted(() => {
         .listen('.party.character-hp.updated', onCharacterHpUpdated)
         .listen('.party.trade.requested', onTradeRequested)
         .listen('.party.trade.accepted', onTradeAccepted)
-        .listen('.party.npc-trade.updated', onNpcTradeUpdated);
+        .listen('.party.npc-trade.updated', onNpcTradeUpdated)
+        .listen('.party.ended', onPartyEnded);
+
+    window.Echo.join(`party-online.${props.party.id}`)
+        .leaving(onPartyPresenceLeaving);
 });
 
 onBeforeUnmount(() => {
     if (window.Echo) {
         window.Echo.leave(`party.${props.party.id}`);
+        window.Echo.leave(`party-online.${props.party.id}`);
     }
 });
 </script>

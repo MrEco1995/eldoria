@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Events\PartyStarted;
 use App\Models\Party;
 use App\Models\PartyInvite;
+use App\Services\PartyLifecycleService;
 use App\Services\PartyViewDataService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -14,7 +15,10 @@ use Inertia\Response;
 
 class PartyController extends Controller
 {
-    public function __construct(private readonly PartyViewDataService $partyViewDataService)
+    public function __construct(
+        private readonly PartyViewDataService $partyViewDataService,
+        private readonly PartyLifecycleService $partyLifecycleService,
+    )
     {
     }
 
@@ -172,13 +176,26 @@ class PartyController extends Controller
                 ->with('status', 'Party ist bereits nicht gestartet.');
         }
 
-        $party->update([
-            'started_at' => null,
-        ]);
+        $this->partyLifecycleService->endParty($party, 'owner_manual_end');
 
         return redirect()
             ->route('parties.show', $party)
             ->with('status', 'Party wurde beendet.');
+    }
+
+    public function endByOwnerDisconnect(Request $request, Party $party): \Illuminate\Http\JsonResponse
+    {
+        $user = $request->user();
+        abort_unless($party->members()->whereKey($user->id)->exists(), 403);
+        abort_if((int) $party->owner_id === (int) $user->id, 403);
+
+        if (! $party->started_at) {
+            return response()->json(['ended' => false, 'alreadyEnded' => true]);
+        }
+
+        $ended = $this->partyLifecycleService->endParty($party, 'owner_disconnected');
+
+        return response()->json(['ended' => $ended]);
     }
 
     private function createInvite(Party $party, int $userId): PartyInvite

@@ -44,10 +44,14 @@ const removingFriendshipIds = ref({});
 const onlineUserMap = ref({});
 const canSubmitUserSearch = computed(() => (searchQuery.value ?? '').trim().length >= 5);
 const hasActiveSearch = computed(() => (props.userSearch ?? '').trim().length >= 5);
+const searchDropdownOpen = ref(false);
+const searchWrapRef = ref(null);
+const showSearchDropdown = computed(() => hasActiveSearch.value && searchDropdownOpen.value);
 
 const submitUserSearch = () => {
     const value = (searchQuery.value ?? '').trim();
     if (value.length < 5) return;
+    searchDropdownOpen.value = true;
     router.get(route('lobby'), {
         user_search: value || undefined,
     }, {
@@ -59,6 +63,7 @@ const submitUserSearch = () => {
 
 const resetUserSearch = () => {
     searchQuery.value = '';
+    searchDropdownOpen.value = false;
     router.get(route('lobby'), {}, {
         preserveState: true,
         preserveScroll: true,
@@ -173,12 +178,27 @@ const removeOnlineUser = (user) => {
     onlineUserMap.value = next;
 };
 
+const onSearchFocus = () => {
+    if (hasActiveSearch.value) {
+        searchDropdownOpen.value = true;
+    }
+};
+
+const onClickOutside = (event) => {
+    if (!searchWrapRef.value) return;
+    if (searchWrapRef.value.contains(event.target)) return;
+    searchDropdownOpen.value = false;
+};
+
 watch(() => props.userSearch, (next) => {
     searchQuery.value = next ?? '';
 }, { immediate: true });
 
 watch(() => props.users, (next) => {
     usersState.value = [...(next ?? [])];
+    if (hasActiveSearch.value) {
+        searchDropdownOpen.value = true;
+    }
 }, { immediate: true });
 
 watch(() => props.pendingFriendRequests, (next) => {
@@ -191,6 +211,7 @@ watch(() => props.friends, (next) => {
 }, { immediate: true });
 
 onMounted(() => {
+    document.addEventListener('click', onClickOutside);
     if (!window.Echo) return;
     window.Echo.join('online')
         .here((users) => setOnlineUsers(users))
@@ -199,6 +220,7 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+    document.removeEventListener('click', onClickOutside);
     if (!window.Echo) return;
     window.Echo.leave('online');
 });
@@ -209,7 +231,72 @@ onBeforeUnmount(() => {
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="h4 m-0">Lobby</h2>
+            <div class="d-flex flex-column flex-lg-row justify-content-between align-items-start align-items-lg-center gap-3">
+                <h2 class="h4 m-0">Lobby</h2>
+                <div ref="searchWrapRef" class="position-relative" style="width: min(560px, 100%);">
+                    <form class="d-flex gap-2" @submit.prevent="submitUserSearch">
+                        <input
+                            v-model="searchQuery"
+                            type="text"
+                            class="form-control"
+                            placeholder="User suchen (min. 5 Zeichen)..."
+                            @focus="onSearchFocus"
+                        >
+                        <button type="submit" class="btn btn-primary" :disabled="!canSubmitUserSearch">Suchen</button>
+                        <button type="button" class="btn btn-outline-secondary" @click="resetUserSearch">Reset</button>
+                    </form>
+
+                    <div
+                        v-if="showSearchDropdown"
+                        class="position-absolute start-0 end-0 mt-1 bg-white border rounded shadow-sm"
+                        style="z-index: 30; max-height: 360px; overflow-y: auto;"
+                    >
+                        <div v-if="usersState.length === 0" class="px-3 py-2 text-muted small">
+                            Keine User gefunden.
+                        </div>
+                        <div
+                            v-for="entry in usersState"
+                            :key="`header-user-${entry.id}`"
+                            class="px-3 py-2 border-bottom d-flex justify-content-between align-items-center"
+                        >
+                            <div>
+                                <div class="fw-semibold">{{ entry.name }}</div>
+                                <div class="small text-muted">{{ entry.email }}</div>
+                            </div>
+                            <div class="d-inline-flex align-items-center">
+                                <button
+                                    v-if="!entry.relationshipStatus"
+                                    type="button"
+                                    class="btn btn-sm btn-link text-decoration-none"
+                                    :disabled="sendingRequestUserIds[String(entry.id)] === true"
+                                    @click="sendFriendRequest(entry.id)"
+                                    title="Freundschaftsanfrage senden"
+                                >
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                        <path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm0 2a7 7 0 1 1 0 14 7 7 0 0 1 0-14Zm0 2.4a2.4 2.4 0 1 0 0 4.8 2.4 2.4 0 0 0 0-4.8Zm-3.2 7.9c.8-1 2-1.6 3.2-1.6s2.4.6 3.2 1.6v.7h-6.4v-.7Zm9.2-6.2h1.3v2h2v1.3h-2v2H18v-2h-2v-1.3h2v-2Z" />
+                                    </svg>
+                                </button>
+                                <span
+                                    v-else-if="entry.relationshipStatus === 'accepted'"
+                                    class="text-success"
+                                    title="Befreundet"
+                                >
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                        <path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm0 2a7 7 0 1 1 0 14 7 7 0 0 1 0-14Zm0 2.4a2.4 2.4 0 1 0 0 4.8 2.4 2.4 0 0 0 0-4.8Zm-3.2 7.9c.8-1 2-1.6 3.2-1.6s2.4.6 3.2 1.6v.7h-6.4v-.7Zm9.5-2.1 1.2 1.2 2.5-2.5 1.2 1.2-3.7 3.7-2.4-2.4 1.2-1.2Z" />
+                                    </svg>
+                                </span>
+                                <span
+                                    v-else
+                                    class="small text-muted"
+                                    :title="entry.relationshipStatus === 'outgoing_pending' ? 'Anfrage gesendet' : 'Hat dir angefragt'"
+                                >
+                                    ...
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </template>
 
         <div class="row position-relative">
@@ -317,69 +404,6 @@ onBeforeUnmount(() => {
             </div>
 
             <div class="col-12 col-lg-8 position-relative">
-                <div class="card shadow-sm border-0 mb-4">
-                    <div class="card-body p-4">
-                        <div class="text-uppercase small text-muted mb-2" style="letter-spacing: 2px;">
-                            Nutzer
-                        </div>
-                        <h6 class="mb-3">User-Suche</h6>
-                        <form class="row g-2 mb-3" @submit.prevent="submitUserSearch">
-                            <div class="col-12 col-md-8">
-                                <input
-                                    v-model="searchQuery"
-                                    type="text"
-                                    class="form-control"
-                                    placeholder="Nach Name oder E-Mail suchen..."
-                                >
-                            </div>
-                            <div class="col-6 col-md-2">
-                                <button type="submit" class="btn btn-primary w-100" :disabled="!canSubmitUserSearch">Suchen</button>
-                            </div>
-                            <div class="col-6 col-md-2">
-                                <button type="button" class="btn btn-outline-secondary w-100" @click="resetUserSearch">Reset</button>
-                            </div>
-                        </form>
-
-                        <div v-if="!hasActiveSearch" class="text-muted small">
-                            Gib mindestens 5 Zeichen ein und starte dann die Suche.
-                        </div>
-                        <div v-else-if="usersState.length === 0" class="text-muted small">Keine User gefunden.</div>
-                        <ul v-else class="list-group list-group-flush">
-                            <li
-                                v-for="entry in usersState"
-                                :key="`lobby-user-${entry.id}`"
-                                class="list-group-item px-0 d-flex justify-content-between align-items-center"
-                            >
-                                <div class="d-flex flex-column">
-                                    <span class="d-inline-flex align-items-center gap-2 fw-semibold">
-                                        <span aria-hidden="true">
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                                                <path d="M12 2a6 6 0 0 0-6 6v3.3l-1.7 2.9A1 1 0 0 0 5.2 16h13.6a1 1 0 0 0 .9-1.5L18 11.3V8a6 6 0 0 0-6-6Zm0 20a3 3 0 0 0 2.8-2H9.2A3 3 0 0 0 12 22Z" />
-                                            </svg>
-                                        </span>
-                                        {{ entry.name }}
-                                    </span>
-                                    <span class="text-muted small">{{ entry.email }}</span>
-                                </div>
-                                <div>
-                                    <button
-                                        v-if="!entry.relationshipStatus"
-                                        type="button"
-                                        class="btn btn-sm btn-outline-primary"
-                                        :disabled="sendingRequestUserIds[String(entry.id)] === true"
-                                        @click="sendFriendRequest(entry.id)"
-                                    >
-                                        Anfrage senden
-                                    </button>
-                                    <span v-else-if="entry.relationshipStatus === 'accepted'" class="badge text-bg-success">Befreundet</span>
-                                    <span v-else-if="entry.relationshipStatus === 'outgoing_pending'" class="badge text-bg-secondary">Anfrage gesendet</span>
-                                    <span v-else-if="entry.relationshipStatus === 'incoming_pending'" class="badge text-bg-warning">Hat dir angefragt</span>
-                                </div>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-
                 <div class="row">
                     <div class="col-12 col-lg-6">
                         <div class="card shadow-sm border-0 mb-4">

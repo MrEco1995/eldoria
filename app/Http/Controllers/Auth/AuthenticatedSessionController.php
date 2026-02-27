@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Services\PartyLifecycleService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -13,6 +14,10 @@ use Inertia\Response;
 
 class AuthenticatedSessionController extends Controller
 {
+    public function __construct(private readonly PartyLifecycleService $partyLifecycleService)
+    {
+    }
+
     /**
      * Display the login view.
      */
@@ -42,6 +47,11 @@ class AuthenticatedSessionController extends Controller
      */
     public function destroy(Request $request): RedirectResponse
     {
+        $user = $request->user();
+        if ($user) {
+            $this->partyLifecycleService->endStartedPartiesForOwner((int) $user->id, 'owner_logout');
+        }
+
         Auth::guard('web')->logout();
 
         $request->session()->invalidate();

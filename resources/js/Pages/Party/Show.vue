@@ -434,11 +434,17 @@ const onPartyStarted = (event) => {
     goToStartedPage();
 };
 
+const onPartyEnded = (event) => {
+    if (Number(event.partyId) !== Number(props.party.id)) return;
+    router.visit(route('lobby'), { replace: true });
+};
+
 onMounted(() => {
     if (window.Echo) {
         window.Echo.private(`party.${props.party.id}`)
             .listen('.party.ready.updated', onReadyUpdated)
-            .listen('.party.started', onPartyStarted);
+            .listen('.party.started', onPartyStarted)
+            .listen('.party.ended', onPartyEnded);
     } else {
         // Fallback when realtime is disabled/unavailable.
         membersPollIntervalId = setInterval(refreshMembers, 3000);

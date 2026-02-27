@@ -177,6 +177,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/parties/{party}/started', [PartyController::class, 'started'])->name('parties.started');
     Route::post('/parties/{party}/start', [PartyController::class, 'start'])->name('parties.start');
     Route::post('/parties/{party}/end', [PartyController::class, 'end'])->name('parties.end');
+    Route::post('/parties/{party}/end-by-owner-disconnect', [PartyController::class, 'endByOwnerDisconnect'])
+        ->name('parties.end-by-owner-disconnect');
     Route::post('/parties/{party}/close', [PartyController::class, 'close'])->name('parties.close');
     Route::post('/parties/{party}/ready', [PartyMemberController::class, 'toggleReady'])
         ->name('parties.ready.toggle');

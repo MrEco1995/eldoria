@@ -2,7 +2,7 @@
 import DiceRoller from '@/Components/DiceRoller.vue';
 import InteractiveWorldMap from '@/Components/InteractiveWorldMap.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 const props = defineProps({
@@ -354,6 +354,11 @@ const onCharacterHpUpdated = (event) => {
     if (Number(event.partyId) !== Number(props.party.id)) return;
     if (!event.partyCharacterId || !event.hp) return;
     applyHpToCharacter(event.partyCharacterId, event.hp);
+};
+
+const onPartyEnded = (event) => {
+    if (Number(event.partyId) !== Number(props.party.id)) return;
+    router.visit(route('lobby'), { replace: true });
 };
 
 const hpRatioPrecise = computed(() => {
@@ -925,12 +930,16 @@ onMounted(() => {
         .listen('.party.inventory-item.updated', onInventoryItemUpdated)
         .listen('.party.wallet.updated', onWalletUpdated)
         .listen('.party.character-hp.updated', onCharacterHpUpdated)
-        .listen('.party.npc-trade.updated', onNpcTradeUpdated);
+        .listen('.party.npc-trade.updated', onNpcTradeUpdated)
+        .listen('.party.ended', onPartyEnded);
+
+    window.Echo.join(`party-online.${props.party.id}`);
 });
 
 onBeforeUnmount(() => {
     if (window.Echo) {
         window.Echo.leave(`party.${props.party.id}`);
+        window.Echo.leave(`party-online.${props.party.id}`);
     }
 });
 </script>
