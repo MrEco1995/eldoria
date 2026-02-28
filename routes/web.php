@@ -120,11 +120,25 @@ Route::get('/lobby', function (Request $request) {
         ->values();
 
     return Inertia::render('Lobby', [
-        'ownedParties' => $user->ownedParties()->select('id', 'name')->get(),
+        'ownedParties' => $user->ownedParties()
+            ->select('id', 'name', 'started_at')
+            ->get()
+            ->map(fn ($party) => [
+                'id' => (int) $party->id,
+                'name' => $party->name,
+                'startedAt' => $party->started_at?->toIso8601String(),
+            ])
+            ->values(),
         'memberParties' => $user->parties()
             ->where('parties.owner_id', '!=', $user->id)
-            ->select('parties.id', 'parties.name')
-            ->get(),
+            ->select('parties.id', 'parties.name', 'parties.started_at')
+            ->get()
+            ->map(fn ($party) => [
+                'id' => (int) $party->id,
+                'name' => $party->name,
+                'startedAt' => $party->started_at?->toIso8601String(),
+            ])
+            ->values(),
         'inStartedParty' => $user->parties()->whereNotNull('parties.started_at')->exists(),
         'userSearch' => $userSearch,
         'users' => $users->map(function (User $entry) use ($user, $friendshipsByOtherId) {

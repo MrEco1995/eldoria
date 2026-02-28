@@ -48,6 +48,11 @@ const searchDropdownOpen = ref(false);
 const searchWrapRef = ref(null);
 const showSearchDropdown = computed(() => hasActiveSearch.value && searchDropdownOpen.value);
 
+const openParty = (party) => {
+    const targetRoute = party?.startedAt ? route('parties.started', party.id) : route('parties.show', party.id);
+    window.location.assign(targetRoute);
+};
+
 const submitUserSearch = () => {
     const value = (searchQuery.value ?? '').trim();
     if (value.length < 5) return;
@@ -450,12 +455,13 @@ onBeforeUnmount(() => {
                                                 <div class="fw-semibold text-white">{{ party.name }}</div>
                                                 <div class="lobby-muted small">Du führst diese Reisegruppe.</div>
                                             </div>
-                                            <Link
-                                                :href="route('parties.show', party.id)"
+                                            <button
+                                                type="button"
                                                 class="btn btn-sm lobby-primary-button"
+                                                @click="openParty(party)"
                                             >
                                                 Öffnen
-                                            </Link>
+                                            </button>
                                         </li>
                                     </ul>
                                 </div>
@@ -480,12 +486,13 @@ onBeforeUnmount(() => {
                                                 <div class="fw-semibold text-white">{{ party.name }}</div>
                                                 <div class="lobby-muted small">Du reist als Mitglied mit.</div>
                                             </div>
-                                            <Link
-                                                :href="route('parties.show', party.id)"
+                                            <button
+                                                type="button"
                                                 class="btn btn-sm lobby-primary-button"
+                                                @click="openParty(party)"
                                             >
                                                 Öffnen
-                                            </Link>
+                                            </button>
                                         </li>
                                     </ul>
                                 </div>
