@@ -106,7 +106,11 @@
                             <tbody>
                                 @forelse ($party->characters as $character)
                                     <tr>
-                                        <td>{{ $character->name }}</td>
+                                        <td>
+                                            <a href="{{ route('admin.characters.show', $character) }}" class="text-decoration-none">
+                                                {{ $character->name }}
+                                            </a>
+                                        </td>
                                         <td>{{ $character->user?->name ?? 'Unbekannt' }}</td>
                                         <td class="text-muted small">{{ $character->race }} / {{ $character->class_name }}</td>
                                     </tr>
