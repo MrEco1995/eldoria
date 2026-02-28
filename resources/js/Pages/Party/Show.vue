@@ -468,9 +468,15 @@ onBeforeUnmount(() => {
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="h4 m-0">{{ party.name }}</h2>
+            <div class="party-lobby-header">
+                <div>
+                    <div class="party-lobby-kicker">Reisegruppe</div>
+                    <h2 class="h3 m-0 party-lobby-title">{{ party.name }}</h2>
+                </div>
+            </div>
         </template>
 
+        <section class="party-lobby-scene">
         <div class="row position-relative">
             <div
                 class="position-absolute top-0 start-50 translate-middle-x"
@@ -1053,5 +1059,125 @@ onBeforeUnmount(() => {
                 </div>
             </div>
         </div>
+        </section>
     </AuthenticatedLayout>
 </template>
+
+<style scoped>
+.party-lobby-scene {
+    --party-lobby-bg: linear-gradient(180deg, #08131b 0%, #10202d 52%, #17262c 100%);
+    --party-lobby-card-bg: linear-gradient(180deg, rgba(11, 23, 31, 0.96), rgba(17, 30, 39, 0.93));
+    --party-lobby-border: rgba(206, 175, 111, 0.18);
+    --party-lobby-gold: #d7b168;
+    --party-lobby-text: #eef3ea;
+    --party-lobby-muted: rgba(224, 232, 222, 0.74);
+    position: relative;
+    overflow: hidden;
+    padding: 1.25rem;
+    border-radius: 28px;
+    background:
+        radial-gradient(circle at top left, rgba(116, 207, 198, 0.14), transparent 28%),
+        radial-gradient(circle at bottom right, rgba(215, 177, 104, 0.12), transparent 34%),
+        var(--party-lobby-bg);
+    box-shadow: 0 24px 56px rgba(4, 10, 16, 0.32);
+}
+
+.party-lobby-header {
+    display: flex;
+    align-items: center;
+}
+
+.party-lobby-kicker {
+    color: #c79e54;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+.party-lobby-title {
+    color: #15252f;
+    font-weight: 700;
+}
+
+.party-lobby-scene :deep(.card) {
+    border-radius: 24px;
+    border: 1px solid var(--party-lobby-border) !important;
+    background: var(--party-lobby-card-bg) !important;
+    box-shadow: 0 18px 40px rgba(1, 7, 13, 0.24) !important;
+    overflow: hidden;
+}
+
+.party-lobby-scene :deep(.card-title),
+.party-lobby-scene :deep(h3),
+.party-lobby-scene :deep(h4),
+.party-lobby-scene :deep(h5),
+.party-lobby-scene :deep(h6),
+.party-lobby-scene :deep(.fw-semibold),
+.party-lobby-scene :deep(.form-label) {
+    color: var(--party-lobby-text);
+}
+
+.party-lobby-scene :deep(.text-muted),
+.party-lobby-scene :deep(.small.text-muted) {
+    color: var(--party-lobby-muted) !important;
+}
+
+.party-lobby-scene :deep(.list-group-item) {
+    background: transparent;
+    color: var(--party-lobby-text);
+    border-color: rgba(255, 255, 255, 0.07);
+}
+
+.party-lobby-scene :deep(.form-control),
+.party-lobby-scene :deep(.form-select),
+.party-lobby-scene :deep(input[type='text']),
+.party-lobby-scene :deep(input[type='number']),
+.party-lobby-scene :deep(select) {
+    border-radius: 14px;
+    border-color: rgba(126, 174, 167, 0.18);
+    background: rgba(251, 252, 249, 0.97);
+}
+
+.party-lobby-scene :deep(.input-group .btn),
+.party-lobby-scene :deep(.btn-primary),
+.party-lobby-scene :deep(.btn-outline-primary:hover) {
+    border-color: transparent;
+    background: linear-gradient(135deg, #d7b168, #b98840);
+    color: #132029;
+}
+
+.party-lobby-scene :deep(.btn-outline-primary) {
+    border-color: rgba(215, 177, 104, 0.34);
+    color: #f1d89e;
+}
+
+.party-lobby-scene :deep(.btn-outline-secondary) {
+    border-color: rgba(255, 255, 255, 0.15);
+    color: #dae7df;
+}
+
+.party-lobby-scene :deep(.btn-outline-danger) {
+    border-color: rgba(221, 128, 128, 0.34);
+    color: #f0b8b8;
+}
+
+.party-lobby-scene :deep(.btn-outline-success) {
+    border-color: rgba(112, 186, 140, 0.34);
+    color: #bfe9cb;
+}
+
+.party-lobby-scene :deep(.alert-warning),
+.party-lobby-scene :deep(.alert-info) {
+    color: #f6ecd9;
+    background: rgba(255, 243, 205, 0.08) !important;
+    border: 1px solid rgba(226, 196, 129, 0.18) !important;
+}
+
+@media (max-width: 991.98px) {
+    .party-lobby-scene {
+        padding: 1rem;
+        border-radius: 20px;
+    }
+}
+</style>

@@ -358,7 +358,7 @@ const onCharacterHpUpdated = (event) => {
 
 const onPartyEnded = (event) => {
     if (Number(event.partyId) !== Number(props.party.id)) return;
-    router.visit(route('lobby'), { replace: true });
+    router.visit(route('parties.show', props.party.id), { replace: true });
 };
 
 const hpRatioPrecise = computed(() => {

@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
@@ -236,7 +236,7 @@ onBeforeUnmount(() => {
                     <div class="lobby-kicker">Torhalle von Eldoria</div>
                     <h2 class="lobby-title mb-1">Versammlung der Reisenden</h2>
                     <p class="lobby-subtitle mb-0">
-                        Sammle Verbundete, oeffne deine Gruppe und ziehe weiter in die Grenzlande.
+                        Sammle Verbündete, öffne deine Gruppe und ziehe weiter in die Grenzlande.
                     </p>
                 </div>
                 <div ref="searchWrapRef" class="lobby-search-wrap position-relative">
@@ -315,7 +315,7 @@ onBeforeUnmount(() => {
                             <div class="lobby-kicker">Reisendenhalle</div>
                             <h5 class="card-title mb-2 text-white">Dein Weg beginnt hier</h5>
                             <p class="lobby-copy mb-4">
-                                Fuehre eine Gruppe durch Eldoria oder schliesse dich einer bestehenden Schar an.
+                                Führe eine Gruppe durch Eldoria oder schließe dich einer bestehenden Schar an.
                             </p>
                             <div class="d-flex flex-column gap-2">
                                 <Link
@@ -323,11 +323,11 @@ onBeforeUnmount(() => {
                                     :href="route('parties.create')"
                                     class="btn lobby-primary-button"
                                 >
-                                    Neue Party gruenden
+                                    Neue Party gründen
                                 </Link>
                                 <Link
                                     :href="route('lore.history')"
-                                    class="btn lobby-secondary-button"
+                                    class="btn lobby-primary-button"
                                 >
                                     Chronik von Eldoria
                                 </Link>
@@ -341,7 +341,7 @@ onBeforeUnmount(() => {
                     <div class="lobby-card mb-4">
                         <div class="lobby-card-body">
                             <div class="lobby-kicker">Botenpfad</div>
-                            <h6 class="mb-3 text-white">Kontakte und Gefaehrten</h6>
+                            <h6 class="mb-3 text-white">Kontakte und Gefährten</h6>
                             <div v-if="friendsState.length === 0" class="lobby-muted">
                                 Noch keine vertrauten Namen im Botenbuch.
                             </div>
@@ -421,12 +421,12 @@ onBeforeUnmount(() => {
                             <div class="lobby-kicker">Schwarzes Brett</div>
                             <h4 class="mb-2 text-white">Die Grenzlande sind unruhig</h4>
                             <p class="lobby-copy mb-0">
-                                Forme eine Reisegruppe, sammle vertraute Gesichter und halte deine Truppe bereit fuer den Aufbruch.
+                                Forme eine Reisegruppe, sammle vertraute Gesichter und halte deine Truppe bereit für den Aufbruch.
                             </p>
                         </div>
                         <div class="lobby-banner-seals">
                             <span class="lobby-seal">Gruppen</span>
-                            <span class="lobby-seal">Gefaehrten</span>
+                            <span class="lobby-seal">Gefährten</span>
                             <span class="lobby-seal">Aufbruch</span>
                         </div>
                     </div>
@@ -438,7 +438,7 @@ onBeforeUnmount(() => {
                                     <div class="lobby-kicker">Meisterzirkel</div>
                                     <h6 class="mb-3 text-white">Deine Partys</h6>
                                     <div v-if="ownedParties.length === 0" class="lobby-muted">
-                                        Du hast noch keine eigene Gruppe gegruendet.
+                                        Du hast noch keine eigene Gruppe gegründet.
                                     </div>
                                     <ul v-else class="list-unstyled mb-0 d-flex flex-column gap-2">
                                         <li
@@ -448,13 +448,13 @@ onBeforeUnmount(() => {
                                         >
                                             <div>
                                                 <div class="fw-semibold text-white">{{ party.name }}</div>
-                                                <div class="lobby-muted small">Du fuehrst diese Reisegruppe.</div>
+                                                <div class="lobby-muted small">Du führst diese Reisegruppe.</div>
                                             </div>
                                             <Link
                                                 :href="route('parties.show', party.id)"
-                                                class="btn btn-sm lobby-secondary-button"
+                                                class="btn btn-sm lobby-primary-button"
                                             >
-                                                Oeffnen
+                                                Öffnen
                                             </Link>
                                         </li>
                                     </ul>
@@ -482,9 +482,9 @@ onBeforeUnmount(() => {
                                             </div>
                                             <Link
                                                 :href="route('parties.show', party.id)"
-                                                class="btn btn-sm lobby-secondary-button"
+                                                class="btn btn-sm lobby-primary-button"
                                             >
-                                                Oeffnen
+                                                Öffnen
                                             </Link>
                                         </li>
                                     </ul>
