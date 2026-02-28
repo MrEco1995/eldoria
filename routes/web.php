@@ -19,6 +19,7 @@ use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Admin\RaceController as AdminRaceController;
 use App\Http\Controllers\Admin\CharacterClassController as AdminCharacterClassController;
 use App\Http\Controllers\Admin\CharacterController as AdminCharacterController;
+use App\Http\Controllers\Admin\PartyController as AdminPartyController;
 use App\Http\Controllers\Admin\MapPointController as AdminMapPointController;
 use App\Http\Controllers\Admin\QuestController as AdminQuestController;
 use App\Http\Controllers\Admin\TalentController as AdminTalentController;
@@ -271,6 +272,9 @@ Route::prefix($adminPrefix)->name('admin.')->group(function () use ($adminLoginP
     Route::middleware('admin.auth')->group(function () {
         Route::get('/dashboard', AdminDashboardController::class)->name('dashboard');
         Route::get('/users', [AdminUserController::class, 'index'])->name('users.index');
+        Route::get('/parties', [AdminPartyController::class, 'index'])->name('parties.index');
+        Route::get('/parties/{party}/edit', [AdminPartyController::class, 'edit'])->name('parties.edit');
+        Route::post('/parties/{party}', [AdminPartyController::class, 'update'])->name('parties.update');
         Route::get('/characters', [AdminCharacterController::class, 'index'])->name('characters.index');
         Route::get('/characters/{character}', [AdminCharacterController::class, 'show'])->name('characters.show');
         Route::get('/map', [AdminMapPointController::class, 'index'])->name('map.index');
