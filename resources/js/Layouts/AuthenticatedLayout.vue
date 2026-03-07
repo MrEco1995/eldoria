@@ -105,6 +105,9 @@ onBeforeUnmount(() => {
                             <li>
                                 <Link class="dropdown-item" :href="route('lore.history')">Eldoria Chronik</Link>
                             </li>
+                            <li>
+                                <Link class="dropdown-item" :href="route('lore.rules')">Eldoria Regelwerk</Link>
+                            </li>
                             <hr></hr>
                             <li>
                                 <Link class="dropdown-item" :href="route('logout')" method="post" as="button">

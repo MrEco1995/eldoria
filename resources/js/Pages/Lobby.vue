@@ -336,6 +336,12 @@ onBeforeUnmount(() => {
                                 >
                                     Chronik von Eldoria
                                 </Link>
+                                <Link
+                                    :href="route('lore.rules')"
+                                    class="btn lobby-primary-button"
+                                >
+                                    Regelwerk von Eldoria
+                                </Link>
                                 <div v-if="inStartedParty" class="lobby-note small">
                                     Du bist bereits Teil einer gestarteten Gruppe.
                                 </div>

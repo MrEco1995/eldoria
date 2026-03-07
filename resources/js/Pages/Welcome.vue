@@ -32,6 +32,12 @@ defineProps({
                         Eldoria Chronik
                     </Link>
                     <Link
+                        class="btn btn-outline-dark"
+                        :href="route('lore.rules')"
+                    >
+                        Eldoria Regelwerk
+                    </Link>
+                    <Link
                         v-if="canLogin && $page.props.auth.user"
                         class="btn btn-primary"
                         :href="route('lobby')"

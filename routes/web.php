@@ -52,6 +52,10 @@ Route::get('/eldoria/geschichte', function () {
     return Inertia::render('Lore/History');
 })->name('lore.history');
 
+Route::get('/eldoria/regelwerk', function () {
+    return Inertia::render('Lore/Rules');
+})->name('lore.rules');
+
 Route::get('/media/public/{path}', [PublicMediaController::class, 'show'])
     ->where('path', '.*')
     ->name('media.public');

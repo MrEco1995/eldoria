@@ -15,6 +15,9 @@ import { Head, Link } from '@inertiajs/vue3';
             <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
                 <h1 class="display-6 text-white fw-bold mb-0">Chronik von Eldoria</h1>
                 <div class="d-flex gap-2">
+                    <Link :href="route('lore.rules')" class="btn btn-outline-light btn-sm">
+                        Zum Regelwerk
+                    </Link>
                     <Link :href="route('welcome')" class="btn btn-outline-light btn-sm">
                         Zur Startseite
                     </Link>
