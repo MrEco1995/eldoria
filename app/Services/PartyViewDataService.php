@@ -488,6 +488,7 @@ class PartyViewDataService
                     'talents' => collect($request->talents ?? [])->map(fn ($talent) => [
                         'key' => $talent['key'] ?? '',
                         'label' => $talent['label'] ?? ($talent['key'] ?? ''),
+                        'rolledRaw' => $talent['rolledRaw'] ?? null,
                         'rolledValue' => $talent['rolledValue'] ?? null,
                         'targetValue' => $talent['targetValue'] ?? null,
                         'isSuccess' => $talent['isSuccess'] ?? null,

@@ -1522,7 +1522,7 @@ onBeforeUnmount(() => {
                                                 <span>{{ talent.label }}</span>
                                                 <span class="d-flex align-items-center gap-2">
                                                     <span v-if="talent.rolledAt" class="text-muted">
-                                                        {{ talent.rolledValue }} / {{ talent.targetValue }}
+                                                        Gesamt: {{ talent.rolledValue }} / SG {{ talent.targetValue }}
                                                     </span>
                                                     <span class="badge" :class="talentResultClass(talent)">
                                                         {{ talentResultText(talent) }}

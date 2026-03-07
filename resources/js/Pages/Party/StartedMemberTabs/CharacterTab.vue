@@ -21,6 +21,7 @@ defineProps({
     talentGroups: { type: Array, default: () => [] },
     getTalentValue: { type: Function, required: true },
     latestMyRequest: { type: Object, default: null },
+    difficultyLabel: { type: Function, required: true },
     modifierLabel: { type: Function, required: true },
     requestResultClass: { type: Function, required: true },
     requestResultText: { type: Function, required: true },
@@ -123,7 +124,7 @@ defineProps({
                             <div class="small mb-2">
                                 <strong>{{ latestMyRequest.ownerUserName }}</strong> fordert:
                                 {{ latestMyRequest.talents.map((t) => t.label).join(', ') }}
-                                <span class="text-muted"> / {{ modifierLabel(latestMyRequest) }}</span>
+                                <span class="text-muted"> / {{ difficultyLabel(latestMyRequest) }} / {{ modifierLabel(latestMyRequest) }}</span>
                             </div>
                             <div class="d-flex justify-content-between align-items-center mb-2">
                                 <span class="badge" :class="requestResultClass(latestMyRequest)">
@@ -139,7 +140,7 @@ defineProps({
                                     <div class="small">
                                         <div class="fw-semibold">{{ talent.label }}</div>
                                         <div v-if="isRolled(talent)" class="text-muted">
-                                            Wurf: {{ talent.rolledValue }} / Zielwert: {{ talent.targetValue }}
+                                            Gesamt: {{ talent.rolledValue }} / SG: {{ talent.targetValue }}
                                         </div>
                                     </div>
                                     <div class="d-flex align-items-center gap-2">

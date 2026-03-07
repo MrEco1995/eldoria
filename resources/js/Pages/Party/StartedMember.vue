@@ -781,6 +781,12 @@ const modifierLabel = (request) => {
         : `Erschwert -${request.modifierPoints}`;
 };
 
+const difficultyLabel = (request) => {
+    const label = String(request?.difficultyLabel ?? 'Normal');
+    const sg = Number(request?.difficultySg ?? 12);
+    return `${label} (SG ${sg})`;
+};
+
 const isRolled = (talent) => talent?.rolledAt != null;
 const resultClass = (talent) => {
     if (!isRolled(talent)) return 'text-bg-warning';
@@ -1006,6 +1012,7 @@ onBeforeUnmount(() => {
                 :talent-groups="talentGroups"
                 :get-talent-value="getTalentValue"
                 :latest-my-request="latestMyRequest"
+                :difficulty-label="difficultyLabel"
                 :modifier-label="modifierLabel"
                 :request-result-class="requestResultClass"
                 :request-result-text="requestResultText"

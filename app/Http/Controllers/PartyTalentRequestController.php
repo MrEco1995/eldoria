@@ -54,6 +54,7 @@ class PartyTalentRequestController extends Controller
             return [
                 'key' => $key,
                 'label' => $talentKeys[$key] ?? $key,
+                'rolledRaw' => null,
                 'rolledValue' => null,
                 'targetValue' => null,
                 'isSuccess' => null,
@@ -120,13 +121,13 @@ class PartyTalentRequestController extends Controller
             default => 0,
         };
         $difficultySg = max(1, (int) ($talentRequest->difficulty_sg ?? 12));
-        $difficultyAdjustment = 12 - $difficultySg;
-        $targetValue = max(0, $baseValue + $modifier + $difficultyAdjustment);
-        $rolledValue = (int) $data['rolled_value'];
-        $isSuccess = $rolledValue <= $targetValue;
+        $rolledRaw = (int) $data['rolled_value'];
+        $rolledTotal = max(0, $rolledRaw + $baseValue + $modifier);
+        $isSuccess = $rolledTotal >= $difficultySg;
 
-        $talents[$talentIndex]['rolledValue'] = $rolledValue;
-        $talents[$talentIndex]['targetValue'] = $targetValue;
+        $talents[$talentIndex]['rolledRaw'] = $rolledRaw;
+        $talents[$talentIndex]['rolledValue'] = $rolledTotal;
+        $talents[$talentIndex]['targetValue'] = $difficultySg;
         $talents[$talentIndex]['isSuccess'] = $isSuccess;
         $talents[$talentIndex]['rolledAt'] = now()->toIso8601String();
 
@@ -136,8 +137,8 @@ class PartyTalentRequestController extends Controller
             'talents' => $talents,
             'status' => $allRolled ? 'confirmed' : 'pending',
             'rolled_talent_key' => $data['rolled_talent_key'],
-            'rolled_value' => $rolledValue,
-            'target_value' => $targetValue,
+            'rolled_value' => $rolledRaw,
+            'target_value' => $difficultySg,
             'is_success' => $isSuccess,
             'confirmed_at' => $allRolled ? now() : null,
         ]);
@@ -184,6 +185,7 @@ class PartyTalentRequestController extends Controller
             return [
                 'key' => $talent['key'] ?? '',
                 'label' => $talent['label'] ?? ($talent['key'] ?? ''),
+                'rolledRaw' => $talent['rolledRaw'] ?? null,
                 'rolledValue' => $talent['rolledValue'] ?? null,
                 'targetValue' => $talent['targetValue'] ?? null,
                 'isSuccess' => $talent['isSuccess'] ?? null,
