@@ -10,6 +10,7 @@ use App\Models\PartyTradeSession;
 use App\Models\PartyTalentRequest;
 use App\Models\Quest;
 use App\Models\CharacterClass;
+use App\Models\CheckDifficulty;
 use App\Models\PointOfInterest;
 use App\Models\Race;
 use App\Models\Talent;
@@ -52,6 +53,7 @@ class PartyViewDataService
             'members' => $this->loadMembers($party),
             'characters' => $this->loadCharacterPayloads($party)->values(),
             'talentDefinitions' => $this->loadTalentDefinitions(),
+            'difficulties' => $this->loadCheckDifficulties(),
             'talentRequests' => $this->loadTalentRequests($party, $userId),
             'tradeSessions' => $this->loadTradeSessions($party, $userId),
             'npcTradeOffers' => $this->loadNpcTradeOffers($party),
@@ -480,6 +482,9 @@ class PartyViewDataService
                     'ownerUserName' => $owner?->name ?? 'Spielleiter',
                     'targetUserId' => $request->target_user_id,
                     'targetUserName' => $target?->name ?? 'Spieler',
+                    'difficultyId' => $request->difficulty_id,
+                    'difficultyLabel' => $request->difficulty_label ?: 'Normal',
+                    'difficultySg' => (int) ($request->difficulty_sg ?? 12),
                     'talents' => collect($request->talents ?? [])->map(fn ($talent) => [
                         'key' => $talent['key'] ?? '',
                         'label' => $talent['label'] ?? ($talent['key'] ?? ''),
@@ -499,6 +504,22 @@ class PartyViewDataService
                     'confirmedAt' => optional($request->confirmed_at)?->toIso8601String(),
                 ];
             })
+            ->values();
+    }
+
+    private function loadCheckDifficulties(): Collection
+    {
+        return CheckDifficulty::query()
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderBy('sg')
+            ->get(['id', 'key', 'label', 'sg'])
+            ->map(fn ($entry) => [
+                'id' => (int) $entry->id,
+                'key' => $entry->key,
+                'label' => $entry->label,
+                'sg' => (int) $entry->sg,
+            ])
             ->values();
     }
 

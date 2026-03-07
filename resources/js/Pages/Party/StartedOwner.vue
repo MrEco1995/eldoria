@@ -9,6 +9,7 @@ const props = defineProps({
     party: { type: Object, required: true },
     characters: { type: Array, default: () => [] },
     talentDefinitions: { type: Array, default: () => [] },
+    difficulties: { type: Array, default: () => [] },
     talentRequests: { type: Array, default: () => [] },
     npcTradeOffers: { type: Array, default: () => [] },
     mapLocations: { type: Array, default: () => [] },
@@ -24,6 +25,7 @@ const activeCharacterId = ref(playerCharacters.value[0]?.id ?? NPC_TRADE_TOP_TAB
 const activeDetailTab = ref('character');
 const selectedTalentsByUser = ref({});
 const modifierByUser = ref({});
+const selectedDifficultyByUser = ref({});
 const requestState = ref([...props.talentRequests]);
 const usePreviewFallback = ref(false);
 const racePreviewIndex = ref(0);
@@ -274,6 +276,26 @@ const ensureModifierState = (userId) => {
     return modifierByUser.value[userId];
 };
 
+const defaultDifficultyId = computed(() => {
+    const entries = props.difficulties ?? [];
+    if (!entries.length) return null;
+    const normal = entries.find((entry) => String(entry.key) === 'normal');
+    return Number(normal?.id ?? entries[0].id);
+});
+
+const ensureDifficultyState = (userId) => {
+    const key = String(userId);
+    const availableIds = new Set((props.difficulties ?? []).map((entry) => Number(entry.id)));
+    const current = Number(selectedDifficultyByUser.value[key] ?? 0);
+    if (current > 0 && availableIds.has(current)) {
+        return current;
+    }
+
+    const fallback = Number(defaultDifficultyId.value ?? 0);
+    selectedDifficultyByUser.value[key] = fallback > 0 ? fallback : null;
+    return selectedDifficultyByUser.value[key];
+};
+
 const sendTalentRequest = async () => {
     if (!activeCharacter.value) return;
 
@@ -281,11 +303,14 @@ const sendTalentRequest = async () => {
     const talents = selectedTalentsByUser.value[targetUserId] ?? [];
     if (!talents.length) return;
     const modifier = ensureModifierState(targetUserId);
+    const difficultyId = ensureDifficultyState(targetUserId);
+    if (!difficultyId) return;
 
     try {
         const response = await window.axios.post(route('parties.talent-requests.store', props.party.id), {
             target_user_id: targetUserId,
             talents,
+            difficulty_id: Number(difficultyId),
             modifier_type: modifier.type,
             modifier_points: modifier.type === 'none' ? 0 : Number(modifier.points || 0),
         });
@@ -415,6 +440,12 @@ const modifierLabel = (request) => {
     }
 
     return `Erschwert -${request.modifierPoints}`;
+};
+
+const difficultyLabel = (request) => {
+    const label = String(request?.difficultyLabel ?? 'Normal');
+    const sg = Number(request?.difficultySg ?? 12);
+    return `${label} (SG ${sg})`;
 };
 
 const racePreviewSources = computed(() => {
@@ -1412,6 +1443,20 @@ onBeforeUnmount(() => {
                                 <div class="mt-3 d-flex gap-2 align-items-center flex-wrap">
                                     <select
                                         class="form-select form-select-sm"
+                                        style="max-width: 210px;"
+                                        :value="ensureDifficultyState(activeCharacter.user_id)"
+                                        @change="selectedDifficultyByUser[String(activeCharacter.user_id)] = Number($event.target.value)"
+                                    >
+                                        <option
+                                            v-for="entry in difficulties"
+                                            :key="entry.id"
+                                            :value="entry.id"
+                                        >
+                                            {{ entry.label }} (SG {{ entry.sg }})
+                                        </option>
+                                    </select>
+                                    <select
+                                        class="form-select form-select-sm"
                                         style="max-width: 170px;"
                                         :value="ensureModifierState(activeCharacter.user_id).type"
                                         @change="ensureModifierState(activeCharacter.user_id).type = $event.target.value"
@@ -1462,7 +1507,7 @@ onBeforeUnmount(() => {
                                         <div class="d-flex justify-content-between align-items-center">
                                             <div class="small">
                                                 {{ latestActiveRequest.talents.map((t) => t.label).join(', ') }}
-                                                <span class="text-muted"> · {{ modifierLabel(latestActiveRequest) }}</span>
+                                                <span class="text-muted"> · {{ difficultyLabel(latestActiveRequest) }} · {{ modifierLabel(latestActiveRequest) }}</span>
                                             </div>
                                             <span class="badge" :class="requestResultClass(latestActiveRequest)">
                                                 {{ requestResultText(latestActiveRequest) }}

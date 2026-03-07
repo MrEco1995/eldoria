@@ -11,6 +11,9 @@ class PartyTalentRequest extends Model
         'party_id',
         'owner_user_id',
         'target_user_id',
+        'difficulty_id',
+        'difficulty_label',
+        'difficulty_sg',
         'talents',
         'modifier_type',
         'modifier_points',
@@ -23,6 +26,8 @@ class PartyTalentRequest extends Model
     ];
 
     protected $casts = [
+        'difficulty_id' => 'integer',
+        'difficulty_sg' => 'integer',
         'talents' => 'array',
         'modifier_points' => 'integer',
         'rolled_value' => 'integer',

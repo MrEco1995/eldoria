@@ -78,6 +78,9 @@
                     <a href="{{ route('admin.talents.index') }}" class="admin-nav-link {{ request()->routeIs('admin.talents.*') ? 'active' : '' }}">
                         Talente
                     </a>
+                    <a href="{{ route('admin.check-difficulties.index') }}" class="admin-nav-link {{ request()->routeIs('admin.check-difficulties.*') ? 'active' : '' }}">
+                        Schwierigkeiten
+                    </a>
                     <a href="{{ route('admin.races.index') }}" class="admin-nav-link {{ request()->routeIs('admin.races.*') ? 'active' : '' }}">
                         Völker
                     </a>

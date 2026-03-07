@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Events\PartyTalentRequestConfirmed;
 use App\Events\PartyTalentRequestCreated;
+use App\Models\CheckDifficulty;
 use App\Models\Party;
 use App\Models\PartyTalentRequest;
 use App\Models\PartyCharacter;
@@ -24,6 +25,10 @@ class PartyTalentRequestController extends Controller
         $talentKeys = Talent::query()
             ->where('is_active', true)
             ->pluck('label', 'key');
+        $difficultyIds = CheckDifficulty::query()
+            ->where('is_active', true)
+            ->pluck('id')
+            ->all();
 
         $data = $request->validate([
             'target_user_id' => [
@@ -33,6 +38,7 @@ class PartyTalentRequestController extends Controller
             ],
             'talents' => ['required', 'array', 'min:1'],
             'talents.*' => ['required', 'string', Rule::in($talentKeys->keys()->all())],
+            'difficulty_id' => ['required', 'integer', Rule::in($difficultyIds)],
             'modifier_type' => ['required', 'string', Rule::in(['none', 'easy', 'hard'])],
             'modifier_points' => ['required', 'integer', 'min:0', 'max:5'],
         ]);
@@ -55,10 +61,18 @@ class PartyTalentRequestController extends Controller
             ];
         }, $uniqueTalentKeys);
 
+        $difficulty = CheckDifficulty::query()
+            ->where('is_active', true)
+            ->whereKey($data['difficulty_id'])
+            ->firstOrFail();
+
         $talentRequest = PartyTalentRequest::create([
             'party_id' => $party->id,
             'owner_user_id' => $user->id,
             'target_user_id' => $targetUser->id,
+            'difficulty_id' => (int) $difficulty->id,
+            'difficulty_label' => $difficulty->label,
+            'difficulty_sg' => (int) $difficulty->sg,
             'talents' => $talents,
             'modifier_type' => $data['modifier_type'],
             'modifier_points' => (int) $data['modifier_points'],
@@ -105,9 +119,11 @@ class PartyTalentRequestController extends Controller
             'hard' => -1 * (int) $talentRequest->modifier_points,
             default => 0,
         };
-        $targetValue = max(0, $baseValue + $modifier);
+        $difficultySg = max(1, (int) ($talentRequest->difficulty_sg ?? 12));
+        $difficultyAdjustment = 12 - $difficultySg;
+        $targetValue = max(0, $baseValue + $modifier + $difficultyAdjustment);
         $rolledValue = (int) $data['rolled_value'];
-        $isSuccess = $rolledValue < $targetValue;
+        $isSuccess = $rolledValue <= $targetValue;
 
         $talents[$talentIndex]['rolledValue'] = $rolledValue;
         $talents[$talentIndex]['targetValue'] = $targetValue;
@@ -146,6 +162,9 @@ class PartyTalentRequestController extends Controller
             'ownerUserName' => $ownerName,
             'targetUserId' => $request->target_user_id,
             'targetUserName' => $targetName,
+            'difficultyId' => $request->difficulty_id,
+            'difficultyLabel' => $request->difficulty_label ?: 'Normal',
+            'difficultySg' => (int) ($request->difficulty_sg ?? 12),
             'talents' => $this->normalizeTalents($request->talents ?? []),
             'modifierType' => $request->modifier_type,
             'modifierPoints' => (int) $request->modifier_points,
