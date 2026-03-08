@@ -49,7 +49,7 @@ const searchWrapRef = ref(null);
 const showSearchDropdown = computed(() => hasActiveSearch.value && searchDropdownOpen.value);
 
 const openParty = (party) => {
-    const targetRoute = party?.startedAt ? route('parties.started', party.id) : route('parties.show', party.id);
+    const targetRoute = route('parties.show', party.id);
     window.location.assign(targetRoute);
 };
 

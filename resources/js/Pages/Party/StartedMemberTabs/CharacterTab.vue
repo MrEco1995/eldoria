@@ -30,7 +30,6 @@ defineProps({
     resultClass: { type: Function, required: true },
     resultText: { type: Function, required: true },
     rollingKeys: { type: Object, default: () => ({}) },
-    isGlobalRolling: { type: Boolean, default: false },
     onRollTalent: { type: Function, required: true },
     handleCharacterImageError: { type: Function, required: true },
 });
@@ -159,7 +158,7 @@ defineProps({
                                         <button
                                             type="button"
                                             class="btn btn-sm btn-primary"
-                                            :disabled="isGlobalRolling || isRolled(talent) || rollingKeys[`${latestMyRequest.id}:${talent.key}`]"
+                                            :disabled="isRolled(talent) || rollingKeys[`${latestMyRequest.id}:${talent.key}`]"
                                             @click="onRollTalent(latestMyRequest, talent)"
                                         >
                                             W20

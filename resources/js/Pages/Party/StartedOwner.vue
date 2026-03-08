@@ -67,6 +67,8 @@ const npcTradeForm = ref({
 const npcTradeState = computed(() => {
     return npcTradeStateList.value.find((entry) => Number(entry.id) === Number(selectedNpcTradeOfferId.value)) ?? null;
 });
+const isPartyStarted = computed(() => Boolean(props.party?.startedAt ?? props.party?.started_at ?? null));
+const showOwnerMapTab = computed(() => isPartyStarted.value);
 
 const inventoryPresetCategories = [
     'Waffen',
@@ -139,6 +141,12 @@ watch(() => props.characters, (next) => {
     if (!characterState.value.some((entry) => Number(entry.id) === Number(activeCharacterId.value))) {
         activeCharacterId.value = characterState.value[0]?.id ?? null;
     }
+}, { immediate: true });
+
+watch(showOwnerMapTab, (showMap) => {
+    if (showMap) return;
+    if (activeCharacterId.value !== MAP_TOP_TAB) return;
+    activeCharacterId.value = characterState.value[0]?.id ?? NPC_TRADE_TOP_TAB;
 }, { immediate: true });
 
 watch(() => props.npcTradeOffers, (nextOffers) => {
@@ -1029,7 +1037,7 @@ onBeforeUnmount(() => {
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button type="button" class="nav-link" :class="{ active: isMapTopTabActive }" @click="activeCharacterId = MAP_TOP_TAB">
+                        <button v-if="showOwnerMapTab" type="button" class="nav-link" :class="{ active: isMapTopTabActive }" @click="activeCharacterId = MAP_TOP_TAB">
                             Karte
                         </button>
                     </li>
@@ -1214,7 +1222,7 @@ onBeforeUnmount(() => {
                             </div>
                         </div>
                     </div>
-                    <div v-else-if="isMapTopTabActive" class="card shadow-sm border-0 eldoria-panel">
+                    <div v-else-if="showOwnerMapTab && isMapTopTabActive" class="card shadow-sm border-0 eldoria-panel">
                         <div class="card-body p-4 p-md-5">
                             <div class="text-uppercase small text-muted mb-2 eldoria-kicker">Weltkarte</div>
                             <h3 class="h5 mb-3 eldoria-title">Eldoria</h3>
@@ -1396,7 +1404,7 @@ onBeforeUnmount(() => {
                         </ul>
 
                         <div v-if="activeDetailTab === 'character'" class="row g-4">
-                            <div class="col-12 col-xl-8">
+                            <div class="col-12">
                             <h4 class="h5 mb-1">{{ activeCharacter.name }}</h4>
                             <div class="text-muted mb-2">{{ activeCharacter.race }} · {{ activeCharacter.class_name }} · {{ activeCharacter.gender }}</div>
                             <div class="text-muted mb-3">{{ activeCharacter.age }} Jahre · {{ activeCharacter.height_cm }} cm · {{ activeCharacter.weight_kg }} kg</div>
@@ -1509,7 +1517,7 @@ onBeforeUnmount(() => {
                             </div>
                             </div>
 
-                            <div class="col-12 col-xl-4">
+                            <div class="col-12">
                                 <div class="card shadow-sm border-0 mb-4 eldoria-panel">
                                 <div class="card-body p-3">
                                     <img

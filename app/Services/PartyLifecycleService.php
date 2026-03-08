@@ -13,6 +13,12 @@ class PartyLifecycleService
             return false;
         }
 
+        // Reset ready-state so the next session starts cleanly.
+        $party->members()->updateExistingPivot(
+            $party->members()->pluck('users.id')->all(),
+            ['is_ready' => false],
+        );
+
         $party->update(['started_at' => null]);
 
         if (config('realtime.enabled')) {

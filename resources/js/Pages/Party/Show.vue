@@ -546,7 +546,7 @@ onBeforeUnmount(() => {
                 </div>
             </div>
 
-            <div :class="isOwner ? 'col-12 col-lg-5 position-relative' : 'col-12 position-relative'">
+            <div class="col-12 position-relative">
                 <div class="card shadow-sm border-0">
                     <div class="card-body p-4">
                         <div class="text-uppercase small text-muted mb-2" style="letter-spacing: 2px;">
@@ -652,7 +652,7 @@ onBeforeUnmount(() => {
                     </div>
                 </div>
 
-                <div class="card shadow-sm border-0 mt-4">
+                <div v-if="isStarted" class="card shadow-sm border-0 mt-4">
                     <div class="card-body p-4">
                         <div class="text-uppercase small text-muted mb-2" style="letter-spacing: 2px;">
                             Weltkarte
