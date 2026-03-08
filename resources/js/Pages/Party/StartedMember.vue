@@ -781,10 +781,32 @@ const modifierLabel = (request) => {
         : `Erschwert -${request.modifierPoints}`;
 };
 
+const modifierValue = (request) => {
+    if (!request || request.modifierType === 'none' || !request.modifierPoints) return 0;
+    return request.modifierType === 'easy'
+        ? Number(request.modifierPoints)
+        : -1 * Number(request.modifierPoints);
+};
+
 const difficultyLabel = (request) => {
     const label = String(request?.difficultyLabel ?? 'Normal');
     const sg = Number(request?.difficultySg ?? 12);
     return `${label} (SG ${sg})`;
+};
+
+const rollBreakdown = (talent, request) => {
+    if (!talent?.rolledAt) return '';
+    const talentBase = getTalentValue(talent.key);
+    const mod = modifierValue(request);
+    const rawValue = Number.isFinite(Number(talent?.rolledRaw)) ? Number(talent.rolledRaw) : null;
+    const total = Number(talent?.rolledValue ?? 0);
+    const sg = Number(talent?.targetValue ?? request?.difficultySg ?? 12);
+
+    if (rawValue === null) {
+        return `Talent ${talentBase} ${mod >= 0 ? `+ Mod ${mod}` : `- Mod ${Math.abs(mod)}`} = ${total} / SG ${sg}`;
+    }
+
+    return `W20 ${rawValue} + Talent ${talentBase} ${mod >= 0 ? `+ Mod ${mod}` : `- Mod ${Math.abs(mod)}`} = ${total} / SG ${sg}`;
 };
 
 const isRolled = (talent) => talent?.rolledAt != null;
@@ -1014,6 +1036,7 @@ onBeforeUnmount(() => {
                 :latest-my-request="latestMyRequest"
                 :difficulty-label="difficultyLabel"
                 :modifier-label="modifierLabel"
+                :roll-breakdown="rollBreakdown"
                 :request-result-class="requestResultClass"
                 :request-result-text="requestResultText"
                 :is-rolled="isRolled"

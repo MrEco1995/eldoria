@@ -23,6 +23,7 @@ defineProps({
     latestMyRequest: { type: Object, default: null },
     difficultyLabel: { type: Function, required: true },
     modifierLabel: { type: Function, required: true },
+    rollBreakdown: { type: Function, required: true },
     requestResultClass: { type: Function, required: true },
     requestResultText: { type: Function, required: true },
     isRolled: { type: Function, required: true },
@@ -139,8 +140,15 @@ defineProps({
                                 >
                                     <div class="small">
                                         <div class="fw-semibold">{{ talent.label }}</div>
-                                        <div v-if="isRolled(talent)" class="text-muted">
-                                            Gesamt: {{ talent.rolledValue }} / SG: {{ talent.targetValue }}
+                                        <div v-if="isRolled(talent)" class="text-muted d-inline-flex align-items-center gap-1">
+                                            <span>Gesamt: {{ talent.rolledValue }} / SG: {{ talent.targetValue }}</span>
+                                            <span
+                                                class="roll-breakdown-trigger"
+                                                :title="rollBreakdown(talent, latestMyRequest)"
+                                                aria-label="Wurfdetails"
+                                            >
+                                                i
+                                            </span>
                                         </div>
                                     </div>
                                     <div class="d-flex align-items-center gap-2">
@@ -165,3 +173,21 @@ defineProps({
         </div>
     </div>
 </template>
+
+<style scoped>
+.roll-breakdown-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    line-height: 1;
+    font-weight: 700;
+    cursor: help;
+    color: #5f3f1d;
+    background: #f5deb5;
+    border: 1px solid #b9894f;
+}
+</style>

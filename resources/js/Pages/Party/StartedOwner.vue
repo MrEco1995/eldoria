@@ -442,10 +442,34 @@ const modifierLabel = (request) => {
     return `Erschwert -${request.modifierPoints}`;
 };
 
+const modifierValue = (request) => {
+    if (!request || request.modifierType === 'none' || !request.modifierPoints) {
+        return 0;
+    }
+    return request.modifierType === 'easy'
+        ? Number(request.modifierPoints)
+        : -1 * Number(request.modifierPoints);
+};
+
 const difficultyLabel = (request) => {
     const label = String(request?.difficultyLabel ?? 'Normal');
     const sg = Number(request?.difficultySg ?? 12);
     return `${label} (SG ${sg})`;
+};
+
+const talentRollBreakdown = (talent, request, characterTalents = {}) => {
+    if (!talent?.rolledAt) return '';
+    const talentBase = Number(characterTalents?.[talent.key] ?? 0);
+    const mod = modifierValue(request);
+    const rawValue = Number.isFinite(Number(talent?.rolledRaw)) ? Number(talent.rolledRaw) : null;
+    const total = Number(talent?.rolledValue ?? 0);
+    const sg = Number(talent?.targetValue ?? request?.difficultySg ?? 12);
+
+    if (rawValue === null) {
+        return `Talent ${talentBase} ${mod >= 0 ? `+ Mod ${mod}` : `- Mod ${Math.abs(mod)}`} = ${total} / SG ${sg}`;
+    }
+
+    return `W20 ${rawValue} + Talent ${talentBase} ${mod >= 0 ? `+ Mod ${mod}` : `- Mod ${Math.abs(mod)}`} = ${total} / SG ${sg}`;
 };
 
 const racePreviewSources = computed(() => {
@@ -1522,7 +1546,14 @@ onBeforeUnmount(() => {
                                                 <span>{{ talent.label }}</span>
                                                 <span class="d-flex align-items-center gap-2">
                                                     <span v-if="talent.rolledAt" class="text-muted">
-                                                        Gesamt: {{ talent.rolledValue }} / SG {{ talent.targetValue }}
+                                                        <span>Gesamt: {{ talent.rolledValue }} / SG {{ talent.targetValue }}</span>
+                                                        <span
+                                                            class="roll-breakdown-trigger ms-1"
+                                                            :title="talentRollBreakdown(talent, latestActiveRequest, activeCharacter?.talents ?? {})"
+                                                            aria-label="Wurfdetails"
+                                                        >
+                                                            i
+                                                        </span>
                                                     </span>
                                                     <span class="badge" :class="talentResultClass(talent)">
                                                         {{ talentResultText(talent) }}
@@ -1800,6 +1831,22 @@ onBeforeUnmount(() => {
     background: #f4ead9 !important;
     border-color: #d9c6a2 !important;
     color: #4f3a21 !important;
+}
+
+.roll-breakdown-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    line-height: 1;
+    font-weight: 700;
+    cursor: help;
+    color: #5f3f1d;
+    background: #f5deb5;
+    border: 1px solid #b9894f;
 }
 
 .quest-text {
