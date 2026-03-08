@@ -24,6 +24,7 @@ const handleRolled = (payload) => {
             <div class="roll-overlay-die">
                 <Dice3D
                     :show-controls="false"
+                    :cinematic="true"
                     :auto-roll-token="rollToken"
                     :auto-roll-sides="sides"
                     :initial-sides="sides"
@@ -51,14 +52,13 @@ const handleRolled = (payload) => {
 
 .roll-overlay-track {
     width: 100%;
-    overflow: hidden;
+    max-width: 1100px;
+    margin: 0 auto;
 }
 
 .roll-overlay-die {
-    width: min(360px, 72vw);
-    margin-left: -25vw;
-    animation: rollAcross 1.5s cubic-bezier(0.12, 0.8, 0.22, 1) forwards;
-    transform-origin: center;
+    width: min(980px, 94vw);
+    margin: 0 auto;
 }
 
 .roll-overlay-label {
@@ -68,17 +68,5 @@ const handleRolled = (payload) => {
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: #f4e8d1;
-}
-
-@keyframes rollAcross {
-    0% {
-        transform: translateX(0) rotate(0deg) scale(0.8);
-    }
-    50% {
-        transform: translateX(60vw) rotate(380deg) scale(1);
-    }
-    100% {
-        transform: translateX(120vw) rotate(760deg) scale(0.92);
-    }
 }
 </style>

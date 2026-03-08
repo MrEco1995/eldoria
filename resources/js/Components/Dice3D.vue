@@ -22,6 +22,10 @@ const props = defineProps({
         type: Number,
         default: null,
     },
+    cinematic: {
+        type: Boolean,
+        default: false,
+    },
 });
 
 const viewportRef = ref(null);
@@ -45,6 +49,7 @@ let targetQuaternion = new THREE.Quaternion();
 let pendingResult = null;
 
 const rollDurationMs = 1100;
+const settleDurationMs = 700;
 
 const createMaterial = (sides) => {
     return new THREE.MeshStandardMaterial({
@@ -95,6 +100,7 @@ const setDie = (sides) => {
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     mesh.rotation.set(0.25, 0.3, 0);
+    mesh.position.set(0, 0, 0);
     scene.add(mesh);
 
     edgeLines = createEdges(geometry, sides);
@@ -144,10 +150,13 @@ const roll = (sides) => {
     settleStarted = false;
     isRolling.value = true;
     emit('rolling-change', true);
+    mesh.position.set(props.cinematic ? -6 : 0, props.cinematic ? -0.7 : 0, 0);
+    camera.position.set(props.cinematic ? 0.4 : 0, props.cinematic ? 0.35 : 0.2, props.cinematic ? 7.2 : 5);
+    camera.lookAt(0, 0, 0);
     spinVelocity = new THREE.Vector3(
-        0.35 + Math.random() * 0.35,
-        0.3 + Math.random() * 0.4,
-        0.25 + Math.random() * 0.3,
+        0.24 + Math.random() * 0.2,
+        0.42 + Math.random() * 0.38,
+        0.22 + Math.random() * 0.22,
     );
 };
 
@@ -157,26 +166,67 @@ const animate = (timestamp) => {
 
     if (isRolling.value) {
         const elapsed = timestamp - rollStart;
-        if (elapsed < rollDurationMs) {
+        if (props.cinematic && elapsed < rollDurationMs) {
+            const t = Math.max(0, Math.min(1, elapsed / rollDurationMs));
+            const eased = 1 - ((1 - t) * (1 - t));
+            const posX = -6 + (eased * 12);
+            const bounce = Math.abs(Math.sin(t * Math.PI * 6)) * (1 - t) * 1.35;
+            mesh.position.x = posX;
+            mesh.position.y = -0.78 + bounce;
+            mesh.position.z = 0;
+
+            // Strong forward roll plus wobble to mimic edges hitting ground.
+            mesh.rotation.x += spinVelocity.x + (0.06 * (1 - t));
+            mesh.rotation.y += spinVelocity.y + (0.03 * Math.sin(t * Math.PI * 4));
+            mesh.rotation.z += spinVelocity.z + (0.02 * Math.cos(t * Math.PI * 5));
+
+            camera.position.x = posX * 0.08;
+            camera.lookAt(mesh.position.x * 0.22, 0, 0);
+        } else if (!props.cinematic && elapsed < rollDurationMs) {
             mesh.rotation.x += spinVelocity.x;
             mesh.rotation.y += spinVelocity.y;
             mesh.rotation.z += spinVelocity.z;
         } else {
             settleStarted = true;
-            spinVelocity.multiplyScalar(0.92);
+            spinVelocity.multiplyScalar(props.cinematic ? 0.88 : 0.92);
             mesh.rotation.x += spinVelocity.x;
             mesh.rotation.y += spinVelocity.y;
             mesh.rotation.z += spinVelocity.z;
-            mesh.quaternion.slerp(targetQuaternion, 0.13);
+            if (props.cinematic) {
+                const t2 = Math.max(0, Math.min(1, (elapsed - rollDurationMs) / settleDurationMs));
+                mesh.position.x = THREE.MathUtils.lerp(mesh.position.x, 0, 0.12);
+                mesh.position.y = THREE.MathUtils.lerp(mesh.position.y, -0.78, 0.18);
+                camera.position.x = THREE.MathUtils.lerp(camera.position.x, 0, 0.1);
+                camera.lookAt(0, 0, 0);
+                if (t2 > 0.55) {
+                    mesh.quaternion.slerp(targetQuaternion, 0.18);
+                }
+            } else {
+                mesh.quaternion.slerp(targetQuaternion, 0.13);
+            }
 
             const angleDiff = mesh.quaternion.angleTo(targetQuaternion);
-            if (angleDiff < 0.02) {
+            const closeEnough = props.cinematic
+                ? (angleDiff < 0.025 && elapsed > (rollDurationMs + settleDurationMs * 0.55))
+                : angleDiff < 0.02;
+            if (closeEnough) {
                 mesh.quaternion.copy(targetQuaternion);
+                if (props.cinematic) {
+                    mesh.position.set(0, -0.78, 0);
+                    camera.position.set(0, 0.35, 7.2);
+                    camera.lookAt(0, 0, 0);
+                }
                 finishRoll();
             }
         }
     } else if (!settleStarted) {
         mesh.rotation.y += 0.004;
+        if (props.cinematic) {
+            camera.position.x = THREE.MathUtils.lerp(camera.position.x, 0, 0.08);
+            camera.position.y = THREE.MathUtils.lerp(camera.position.y, 0.35, 0.08);
+            camera.position.z = THREE.MathUtils.lerp(camera.position.z, 7.2, 0.08);
+            camera.lookAt(0, 0, 0);
+        }
     }
 
     if (edgeLines) {
@@ -201,7 +251,7 @@ onMounted(() => {
 
     scene = new THREE.Scene();
     camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
-    camera.position.set(0, 0.2, 5);
+    camera.position.set(props.cinematic ? 0 : 0, props.cinematic ? 0.35 : 0.2, props.cinematic ? 7.2 : 5);
 
     renderer = new THREE.WebGLRenderer({
         antialias: true,
@@ -220,6 +270,22 @@ onMounted(() => {
     const rimLight = new THREE.DirectionalLight(0xaad4ff, 0.45);
     rimLight.position.set(-3, -2, 2);
     scene.add(rimLight);
+
+    if (props.cinematic) {
+        const floor = new THREE.Mesh(
+            new THREE.PlaneGeometry(22, 8),
+            new THREE.MeshStandardMaterial({
+                color: 0x1a2433,
+                roughness: 0.92,
+                metalness: 0.02,
+                transparent: true,
+                opacity: 0.42,
+            }),
+        );
+        floor.rotation.x = -Math.PI / 2;
+        floor.position.set(0, -1.55, 0);
+        scene.add(floor);
+    }
 
     setDie(currentSides.value);
     resizeRenderer();
@@ -262,7 +328,7 @@ watch(
 
 <template>
     <div class="dice3d-card">
-        <div ref="viewportRef" class="dice3d-viewport"></div>
+        <div ref="viewportRef" class="dice3d-viewport" :class="{ 'is-cinematic': cinematic }"></div>
 
         <div v-if="showControls" class="dice3d-controls">
             <button type="button" class="btn btn-sm btn-outline-secondary" :disabled="isRolling || !isReady" @click="roll(6)">
@@ -294,6 +360,10 @@ watch(
     background:
         radial-gradient(circle at 50% 20%, rgba(255, 255, 255, 0.22), transparent 45%),
         linear-gradient(180deg, rgba(9, 18, 29, 0.14), rgba(14, 24, 34, 0.28));
+}
+
+.dice3d-viewport.is-cinematic {
+    min-height: min(58vh, 460px);
 }
 
 .dice3d-controls {
