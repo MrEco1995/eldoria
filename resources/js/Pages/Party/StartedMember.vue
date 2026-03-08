@@ -12,7 +12,7 @@ import NpcTradeModal from '@/Pages/Party/StartedMemberTabs/NpcTradeModal.vue';
 import TradePickerModal from '@/Pages/Party/StartedMemberTabs/TradePickerModal.vue';
 import WalletTransactionsModal from '@/Pages/Party/StartedMemberTabs/WalletTransactionsModal.vue';
 import { Head, router } from '@inertiajs/vue3';
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 const props = defineProps({
     party: { type: Object, required: true },
@@ -24,6 +24,7 @@ const props = defineProps({
     npcTradeOffers: { type: Array, default: () => [] },
     mapLocations: { type: Array, default: () => [] },
 });
+const RequirementRollOverlay = defineAsyncComponent(() => import('@/Components/RequirementRollOverlay.vue'));
 
 const requestState = ref([...(props.talentRequests ?? [])]);
 const rollingKeys = ref({});
@@ -60,6 +61,10 @@ const hpState = ref({
     hpCurrent: Number(props.character?.hpCurrent ?? 0),
     hpTemp: Number(props.character?.hpTemp ?? 0),
 });
+const requirementRollOverlayOpen = ref(false);
+const requirementRollToken = ref(0);
+const requirementRollContext = ref(null);
+const requirementRollBusy = ref(false);
 
 const raceImageBaseMap = {
     Menschen: 'Mensch',
@@ -247,6 +252,7 @@ const activeTravelJournalItem = computed(() => {
     return inventoryItems.value.find((item) => isTravelJournalItem(item) && Number(item.quantity || 0) > 0) ?? null;
 });
 const hasTravelJournal = computed(() => Boolean(activeTravelJournalItem.value));
+const isRequirementRolling = computed(() => requirementRollOverlayOpen.value || requirementRollBusy.value);
 
 watch(npcTradeMerchants, (merchants) => {
     if (!merchants.length && activeTab.value === 'npc-trade') {
@@ -911,11 +917,50 @@ const trySellItem = (item) => {
 
 const rollTalent = async (request, talent) => {
     if (!talent?.key || isRolled(talent)) return;
-    const rollKey = makeRollKey(request.id, talent.key);
-    if (rollingKeys.value[rollKey]) return;
+    if (isRequirementRolling.value) return;
 
+    requirementRollContext.value = {
+        requestId: Number(request.id),
+        talentKey: String(talent.key),
+    };
+    requirementRollOverlayOpen.value = true;
+    requirementRollBusy.value = true;
+    requirementRollToken.value += 1;
+};
+
+const handleRequirementRolled = async (payload) => {
+    const context = requirementRollContext.value;
+    if (!context) {
+        requirementRollOverlayOpen.value = false;
+        requirementRollBusy.value = false;
+        return;
+    }
+
+    const request = requestState.value.find((entry) => Number(entry.id) === Number(context.requestId));
+    const talent = request?.talents?.find((entry) => String(entry.key) === context.talentKey);
+    if (!request || !talent || isRolled(talent)) {
+        requirementRollOverlayOpen.value = false;
+        requirementRollBusy.value = false;
+        requirementRollContext.value = null;
+        return;
+    }
+
+    const rollKey = makeRollKey(request.id, talent.key);
+    if (rollingKeys.value[rollKey]) {
+        requirementRollBusy.value = false;
+        requirementRollContext.value = null;
+        return;
+    }
+
+    requirementRollOverlayOpen.value = false;
     rollingKeys.value[rollKey] = true;
-    const rolledValue = Math.floor(Math.random() * 20) + 1;
+    const rolledValue = Number(payload?.result ?? 0);
+    if (rolledValue < 1 || rolledValue > 20) {
+        rollingKeys.value[rollKey] = false;
+        requirementRollBusy.value = false;
+        requirementRollContext.value = null;
+        return;
+    }
 
     try {
         const response = await window.axios.post(route('parties.talent-requests.confirm', {
@@ -932,6 +977,8 @@ const rollTalent = async (request, talent) => {
         // ignore; flash handles errors
     } finally {
         rollingKeys.value[rollKey] = false;
+        requirementRollBusy.value = false;
+        requirementRollContext.value = null;
     }
 };
 
@@ -1043,6 +1090,7 @@ onBeforeUnmount(() => {
                 :result-class="resultClass"
                 :result-text="resultText"
                 :rolling-keys="rollingKeys"
+                :is-global-rolling="isRequirementRolling"
                 :on-roll-talent="rollTalent"
                 :handle-character-image-error="handleCharacterImageError"
             />
@@ -1169,6 +1217,13 @@ onBeforeUnmount(() => {
 
         <YouAreDeadOverlay :show="isCharacterDead" message="Du bist Tot" />
     </AuthenticatedLayout>
+
+    <RequirementRollOverlay
+        :show="requirementRollOverlayOpen"
+        :roll-token="requirementRollToken"
+        :sides="20"
+        @rolled="handleRequirementRolled"
+    />
 
     <DiceRoller v-if="!isCharacterDead" :party-id="party.id" />
 </template>
