@@ -1177,6 +1177,21 @@ onBeforeUnmount(() => {
     border: 1px solid rgba(226, 196, 129, 0.18) !important;
 }
 
+.party-lobby-scene :deep(.bg-light-subtle) {
+    background: rgba(8, 18, 26, 0.72) !important;
+    border-color: rgba(206, 175, 111, 0.2) !important;
+}
+
+.party-lobby-scene :deep(.bg-secondary-subtle) {
+    background: rgba(255, 255, 255, 0.16) !important;
+}
+
+.party-lobby-scene :deep(.border.rounded.p-3.h-100.bg-light-subtle .small),
+.party-lobby-scene :deep(.border.rounded.p-3.h-100.bg-light-subtle label),
+.party-lobby-scene :deep(.border.rounded.p-3.h-100.bg-light-subtle .fw-semibold) {
+    color: var(--party-lobby-text) !important;
+}
+
 @media (max-width: 991.98px) {
     .party-lobby-scene {
         padding: 1rem;
