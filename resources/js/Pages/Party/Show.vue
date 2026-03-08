@@ -1114,7 +1114,10 @@ onBeforeUnmount(() => {
 .party-lobby-scene :deep(h5),
 .party-lobby-scene :deep(h6),
 .party-lobby-scene :deep(.fw-semibold),
-.party-lobby-scene :deep(.form-label) {
+.party-lobby-scene :deep(.form-label),
+.party-lobby-scene :deep(.form-check-label),
+.party-lobby-scene :deep(label.small),
+.party-lobby-scene :deep(.small.m-0) {
     color: var(--party-lobby-text);
 }
 
